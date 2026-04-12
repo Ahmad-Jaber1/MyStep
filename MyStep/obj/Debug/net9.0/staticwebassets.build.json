@@ -1,1 +1,12 @@
-{"Version":1,"Hash":"Sibo8PoPM0nGzWdPMJFWgZPcYvCoHQrtMx+McL7LRI0=","Source":"MyStep","BasePath":"/","Mode":"Root","ManifestType":"Build","ReferencedProjectsConfiguration":[],"DiscoveryPatterns":[],"Assets":[],"Endpoints":[]}
+{
+  "Version": 1,
+  "Hash": "vQ8YH5wQadpjV1xXNT4NcpJ3VOiwaxodcKSzD+FSFg8=",
+  "Source": "MyStep",
+  "BasePath": "_content/MyStep",
+  "Mode": "Default",
+  "ManifestType": "Build",
+  "ReferencedProjectsConfiguration": [],
+  "DiscoveryPatterns": [],
+  "Assets": [],
+  "Endpoints": []
+}

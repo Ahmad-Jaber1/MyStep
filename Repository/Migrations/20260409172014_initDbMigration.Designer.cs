@@ -13,8 +13,8 @@ using Repository;
 namespace Repository.Migrations
 {
     [DbContext(typeof(MyStepDbContext))]
-    [Migration("20260408220307_InitialCreate")]
-    partial class InitialCreate
+    [Migration("20260409172014_initDbMigration")]
+    partial class initDbMigration
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
