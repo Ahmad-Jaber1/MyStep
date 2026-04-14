@@ -1305,6 +1305,16 @@
         "runtime": {
           "bin/placeholder/Models.dll": {}
         }
+      },
+      "Shared/1.0.0": {
+        "type": "project",
+        "framework": ".NETCoreApp,Version=v9.0",
+        "compile": {
+          "bin/placeholder/Shared.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/Shared.dll": {}
+        }
       }
     }
   },
@@ -3684,6 +3694,11 @@
       "type": "project",
       "path": "../Models/Models.csproj",
       "msbuildProject": "../Models/Models.csproj"
+    },
+    "Shared/1.0.0": {
+      "type": "project",
+      "path": "../Shared/Shared.csproj",
+      "msbuildProject": "../Shared/Shared.csproj"
     }
   },
   "projectFileDependencyGroups": {
@@ -3694,7 +3709,8 @@
       "Models >= 1.0.0",
       "Npgsql.EntityFrameworkCore.PostgreSQL >= 9.0.4",
       "Pgvector >= 0.3.2",
-      "Pgvector.EntityFrameworkCore >= 0.3.0"
+      "Pgvector.EntityFrameworkCore >= 0.3.0",
+      "Shared >= 1.0.0"
     ]
   },
   "packageFolders": {
@@ -3724,6 +3740,9 @@
           "projectReferences": {
             "/home/ahmad-jaber/Documents/GraduateProject/MyStep/Models/Models.csproj": {
               "projectPath": "/home/ahmad-jaber/Documents/GraduateProject/MyStep/Models/Models.csproj"
+            },
+            "/home/ahmad-jaber/Documents/GraduateProject/MyStep/Shared/Shared.csproj": {
+              "projectPath": "/home/ahmad-jaber/Documents/GraduateProject/MyStep/Shared/Shared.csproj"
             }
           }
         }

@@ -2,4 +2,5 @@
   <Project Path="Models/Models.csproj" />
   <Project Path="MyStep/MyStep.csproj" />
   <Project Path="Repository/Repository.csproj" />
+  <Project Path="Shared/Shared.csproj" />
 </Solution>

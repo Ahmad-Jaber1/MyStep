@@ -1353,13 +1353,24 @@
           "Models": "1.0.0",
           "Npgsql.EntityFrameworkCore.PostgreSQL": "9.0.4",
           "Pgvector": "0.3.2",
-          "Pgvector.EntityFrameworkCore": "0.3.0"
+          "Pgvector.EntityFrameworkCore": "0.3.0",
+          "Shared": "1.0.0"
         },
         "compile": {
           "bin/placeholder/Repository.dll": {}
         },
         "runtime": {
           "bin/placeholder/Repository.dll": {}
+        }
+      },
+      "Shared/1.0.0": {
+        "type": "project",
+        "framework": ".NETCoreApp,Version=v9.0",
+        "compile": {
+          "bin/placeholder/Shared.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/Shared.dll": {}
         }
       }
     }
@@ -3801,6 +3812,11 @@
       "type": "project",
       "path": "../Repository/Repository.csproj",
       "msbuildProject": "../Repository/Repository.csproj"
+    },
+    "Shared/1.0.0": {
+      "type": "project",
+      "path": "../Shared/Shared.csproj",
+      "msbuildProject": "../Shared/Shared.csproj"
     }
   },
   "projectFileDependencyGroups": {
