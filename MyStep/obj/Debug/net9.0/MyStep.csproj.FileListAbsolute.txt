@@ -306,3 +306,9 @@ D:/Graduate Project/MyStep/MyStep/obj/Debug/net9.0/ref/MyStep.dll
 /home/ahmad-jaber/Documents/GraduateProject/MyStep/MyStep/obj/Debug/net9.0/MyStep.pdb
 /home/ahmad-jaber/Documents/GraduateProject/MyStep/MyStep/obj/Debug/net9.0/MyStep.genruntimeconfig.cache
 /home/ahmad-jaber/Documents/GraduateProject/MyStep/MyStep/obj/Debug/net9.0/ref/MyStep.dll
+/home/ahmad-jaber/Documents/GraduateProject/MyStep/MyStep/bin/Debug/net9.0/Shared.dll
+/home/ahmad-jaber/Documents/GraduateProject/MyStep/MyStep/bin/Debug/net9.0/Shared.pdb
+/home/ahmad-jaber/Documents/GraduateProject/MyStep/MyStep/bin/Debug/net9.0/ApiControllers.dll
+/home/ahmad-jaber/Documents/GraduateProject/MyStep/MyStep/bin/Debug/net9.0/Services.dll
+/home/ahmad-jaber/Documents/GraduateProject/MyStep/MyStep/bin/Debug/net9.0/ApiControllers.pdb
+/home/ahmad-jaber/Documents/GraduateProject/MyStep/MyStep/bin/Debug/net9.0/Services.pdb

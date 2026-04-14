@@ -35,3 +35,5 @@ D:/Graduate Project/MyStep/Repository/obj/Debug/net9.0/ref/Repository.dll
 /home/ahmad-jaber/Documents/GraduateProject/MyStep/Repository/obj/Debug/net9.0/Repository.pdb
 /home/ahmad-jaber/Documents/GraduateProject/MyStep/Repository/obj/Debug/net9.0/Repository.genruntimeconfig.cache
 /home/ahmad-jaber/Documents/GraduateProject/MyStep/Repository/obj/Debug/net9.0/ref/Repository.dll
+/home/ahmad-jaber/Documents/GraduateProject/MyStep/Repository/bin/Debug/net9.0/Shared.dll
+/home/ahmad-jaber/Documents/GraduateProject/MyStep/Repository/bin/Debug/net9.0/Shared.pdb

@@ -1,0 +1,34 @@
+
+GET https://localhost:7147/api/paths 
+
+###
+GET https://localhost:7147/api/paths/2
+
+###
+POST https://localhost:7147/api/paths
+Content-Type: application/json
+
+{
+  "Name": "Backend development using .NET",
+  "Description": "Learn how to develop backend applications using .NET framework."
+  
+}
+
+###
+POST https://localhost:7147/api/paths
+Content-Type: application/json
+
+{
+  "Name": "Backend development using NODEJS",
+  "Description": "Learn how to develop backend applications using NODEJS framework."
+  
+}
+
+### Update item
+PUT https://localhost:7147/api/paths/2
+Content-Type: application/json
+{
+  "Name": "NODEJS",
+  "Description": "Learn."
+  
+}

@@ -14,7 +14,8 @@
           "Models": "1.0.0",
           "Npgsql.EntityFrameworkCore.PostgreSQL": "9.0.4",
           "Pgvector": "0.3.2",
-          "Pgvector.EntityFrameworkCore": "0.3.0"
+          "Pgvector.EntityFrameworkCore": "0.3.0",
+          "Shared": "1.0.0"
         },
         "runtime": {
           "Repository.dll": {}
@@ -881,6 +882,14 @@
             "fileVersion": "1.0.0.0"
           }
         }
+      },
+      "Shared/1.0.0": {
+        "runtime": {
+          "Shared.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
       }
     }
   },
@@ -1318,6 +1327,11 @@
       "hashPath": "system.threading.channels.7.0.0.nupkg.sha512"
     },
     "Models/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "Shared/1.0.0": {
       "type": "project",
       "serviceable": false,
       "sha512": ""

@@ -1331,6 +1331,24 @@
           "buildTransitive/net6.0/_._": {}
         }
       },
+      "ApiControllers/1.0.0": {
+        "type": "project",
+        "framework": ".NETCoreApp,Version=v9.0",
+        "dependencies": {
+          "Models": "1.0.0",
+          "Services": "1.0.0",
+          "Shared": "1.0.0"
+        },
+        "compile": {
+          "bin/placeholder/ApiControllers.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/ApiControllers.dll": {}
+        },
+        "frameworkReferences": [
+          "Microsoft.AspNetCore.App"
+        ]
+      },
       "Models/1.0.0": {
         "type": "project",
         "framework": ".NETCoreApp,Version=v9.0",
@@ -1361,6 +1379,21 @@
         },
         "runtime": {
           "bin/placeholder/Repository.dll": {}
+        }
+      },
+      "Services/1.0.0": {
+        "type": "project",
+        "framework": ".NETCoreApp,Version=v9.0",
+        "dependencies": {
+          "Models": "1.0.0",
+          "Repository": "1.0.0",
+          "Shared": "1.0.0"
+        },
+        "compile": {
+          "bin/placeholder/Services.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/Services.dll": {}
         }
       },
       "Shared/1.0.0": {
@@ -3803,6 +3836,11 @@
         "useSharedDesignerContext.txt"
       ]
     },
+    "ApiControllers/1.0.0": {
+      "type": "project",
+      "path": "../ApiControllers/ApiControllers.csproj",
+      "msbuildProject": "../ApiControllers/ApiControllers.csproj"
+    },
     "Models/1.0.0": {
       "type": "project",
       "path": "../Models/Models.csproj",
@@ -3813,6 +3851,11 @@
       "path": "../Repository/Repository.csproj",
       "msbuildProject": "../Repository/Repository.csproj"
     },
+    "Services/1.0.0": {
+      "type": "project",
+      "path": "../Services/Services.csproj",
+      "msbuildProject": "../Services/Services.csproj"
+    },
     "Shared/1.0.0": {
       "type": "project",
       "path": "../Shared/Shared.csproj",
@@ -3821,10 +3864,12 @@
   },
   "projectFileDependencyGroups": {
     "net9.0": [
+      "ApiControllers >= 1.0.0",
       "Microsoft.AspNetCore.OpenApi >= 9.0.11",
       "Microsoft.EntityFrameworkCore.Design >= 9.0.14",
       "Microsoft.EntityFrameworkCore.Tools >= 9.0.14",
-      "Repository >= 1.0.0"
+      "Repository >= 1.0.0",
+      "Services >= 1.0.0"
     ]
   },
   "packageFolders": {
@@ -3852,8 +3897,14 @@
         "net9.0": {
           "targetAlias": "net9.0",
           "projectReferences": {
+            "/home/ahmad-jaber/Documents/GraduateProject/MyStep/ApiControllers/ApiControllers.csproj": {
+              "projectPath": "/home/ahmad-jaber/Documents/GraduateProject/MyStep/ApiControllers/ApiControllers.csproj"
+            },
             "/home/ahmad-jaber/Documents/GraduateProject/MyStep/Repository/Repository.csproj": {
               "projectPath": "/home/ahmad-jaber/Documents/GraduateProject/MyStep/Repository/Repository.csproj"
+            },
+            "/home/ahmad-jaber/Documents/GraduateProject/MyStep/Services/Services.csproj": {
+              "projectPath": "/home/ahmad-jaber/Documents/GraduateProject/MyStep/Services/Services.csproj"
             }
           }
         }
