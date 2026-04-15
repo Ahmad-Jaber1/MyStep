@@ -1,34 +1,99 @@
+###
 
-GET https://localhost:7147/api/paths 
+GET https://localhost:7147/api/learningObjectives/by-skill/8
 
 ###
-GET https://localhost:7147/api/paths/2
+DELETE https://localhost:7147/api/learningObjectives/50
+
 
 ###
-POST https://localhost:7147/api/paths
+
+GET https://localhost:7147/api/skills/
+
+###
+
+GET https://localhost:7147/api/paths/
+
+@baseUrl = https://localhost:7147/api/LearningObjectives/
+@skillId = 8
+
+###
+POST {{baseUrl}}
 Content-Type: application/json
 
 {
-  "Name": "Backend development using .NET",
-  "Description": "Learn how to develop backend applications using .NET framework."
-  
+    "skillId": {{skillId}},
+    "Description": "Apply the Single Responsibility Principle to design classes with one responsibility."
 }
 
 ###
-POST https://localhost:7147/api/paths
+POST {{baseUrl}}
 Content-Type: application/json
 
 {
-  "Name": "Backend development using NODEJS",
-  "Description": "Learn how to develop backend applications using NODEJS framework."
-  
+    "skillId": {{skillId}},
+    "Description": "Apply the Open/Closed Principle to make classes extendable without modifying existing code."
 }
 
-### Update item
-PUT https://localhost:7147/api/paths/2
+###
+POST {{baseUrl}}
 Content-Type: application/json
+
 {
-  "Name": "NODEJS",
-  "Description": "Learn."
-  
+    "skillId": {{skillId}},
+    "Description": "Apply the Liskov Substitution Principle to ensure derived classes can replace base classes."
+}
+
+###
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+    "skillId": {{skillId}},
+    "Description": "Apply the Interface Segregation Principle to create focused, minimal interfaces."
+}
+
+###
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+    "skillId": {{skillId}},
+    "Description": "Apply the Dependency Inversion Principle to depend on abstractions rather than concrete implementations."
+}
+
+###
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+    "skillId": {{skillId}},
+    "Description": "Implement the Repository Pattern to abstract data access logic and provide a consistent interface."
+}
+
+###
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+    "skillId": {{skillId}},
+    "Description": "Implement the Singleton Pattern to ensure a single instance of a class with thread safety."
+}
+
+###
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+    "skillId": {{skillId}},
+    "Description": "Implement the Factory Pattern to create objects without exposing instantiation logic."
+}
+
+###
+POST {{baseUrl}}
+Content-Type: application/json
+
+{
+    "skillId": {{skillId}},
+    "Description": "Implement the Strategy Pattern to define interchangeable algorithms and switch behavior dynamically."
 }
