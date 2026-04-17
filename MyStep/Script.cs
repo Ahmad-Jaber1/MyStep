@@ -1,26 +1,11 @@
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
-using System.Text.Json.Serialization;
-
-namespace MyStep;
+using Services.DTOs;
 
 public class Script
 {
-    private static readonly float[] DefaultSearchVector = new float[4096];
-    private static readonly JsonSerializerOptions SerializerOptions = new()
-    {
-        PropertyNameCaseInsensitive = true
-    };
-
-    private readonly IHttpClientFactory _httpClientFactory;
-
-    public Script(IHttpClientFactory httpClientFactory)
-    {
-        _httpClientFactory = httpClientFactory;
-    }
-
-    private readonly Dictionary<string, int> skills = new(StringComparer.OrdinalIgnoreCase)
+    private readonly Dictionary<string, int> skills = new()
     {
         { "C# Basics", 3 },
         { "OOP (Object-Oriented Programming)", 4 },
@@ -127,351 +112,183 @@ public class Script
         }
     };
 
-    public async Task<ScriptRunResult> ImportTasksAsync(
-        int pathId,
-        string baseUrl,
-        string tasksPath = "tasks.jsonl",
-        CancellationToken cancellationToken = default)
+    // ✅ Normalize helper (important for matching text safely)
+    private string Normalize(string text)
+        => text.Trim().ToLowerInvariant();
+
+    public async Task ReadTask(string path = "tasks.jsonl")
     {
-        var result = new ScriptRunResult();
-
-        if (pathId <= 0)
+        if (!File.Exists(path))
         {
-            result.Errors.Add("PathId must be greater than zero.");
-            return result;
+            Console.WriteLine($"File not found: {path}");
+            return;
         }
 
-        if (!File.Exists(tasksPath))
+        var handler = new HttpClientHandler
         {
-            result.Errors.Add($"Tasks file was not found: {tasksPath}");
-            return result;
+            ServerCertificateCustomValidationCallback =
+                HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
+        };
+
+        using var client = new HttpClient(handler)
+        {
+            BaseAddress = new Uri("https://localhost:7147/")
+        };
+
+        // ============================================
+        // ✅ STEP 1: LOAD DB OBJECTIVES
+        // ============================================
+        var dbObjectives = await client.GetFromJsonAsync<List<LearningObjectiveResponseDto>>("api/learningobjectives");
+
+        var dbObjectivesByText = new Dictionary<string, int>();
+
+        foreach (var obj in dbObjectives!)
+        {
+            var key = Normalize(obj.Description);
+            if (!dbObjectivesByText.ContainsKey(key))
+                dbObjectivesByText[key] = obj.Id;
         }
 
-        var client = _httpClientFactory.CreateClient();
-        client.BaseAddress = new Uri(baseUrl.TrimEnd('/'));
+        Console.WriteLine($"Loaded {dbObjectivesByText.Count} learning objectives from DB");
 
-        var objectiveCache = new Dictionary<int, Dictionary<int, int>>();
-        var parsedTasks = ParseTasks(tasksPath, result);
-
-        foreach (var payload in parsedTasks)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            result.ParsedTasks++;
-
-            if (!skills.TryGetValue(payload.SkillCategory, out var mainSkillId))
-            {
-                result.Errors.Add($"Task '{payload.TaskName}' skipped: unknown skill category '{payload.SkillCategory}'.");
-                continue;
-            }
-
-            var taskId = await CreateTaskItemAsync(client, pathId, mainSkillId, payload, result, cancellationToken);
-            if (!taskId.HasValue)
-            {
-                continue;
-            }
-
-            foreach (var targetLocalId in payload.TargetedObjectives.Distinct())
-            {
-                var objectiveId = await ResolveLearningObjectiveIdAsync(client, mainSkillId, targetLocalId, objectiveCache, cancellationToken);
-                if (!objectiveId.HasValue)
-                {
-                    result.Errors.Add($"Task '{payload.TaskName}': targeted objective '{targetLocalId}' for skill '{payload.SkillCategory}' was not resolved.");
-                    continue;
-                }
-
-                var createdTarget = await CreateTaskTargetAsync(client, taskId.Value, objectiveId.Value, result, cancellationToken);
-                if (createdTarget)
-                {
-                    result.CreatedTargets++;
-                }
-            }
-
-            foreach (var additional in payload.AdditionalSkillsRequired)
-            {
-                if (!skills.TryGetValue(additional.SkillName, out var additionalSkillId))
-                {
-                    result.Errors.Add($"Task '{payload.TaskName}': additional skill '{additional.SkillName}' was not found in mapping.");
-                    continue;
-                }
-
-                var objectiveId = await ResolveLearningObjectiveIdAsync(client, additionalSkillId, additional.UsedLearningGoal, objectiveCache, cancellationToken);
-                if (!objectiveId.HasValue)
-                {
-                    result.Errors.Add($"Task '{payload.TaskName}': prerequisite objective '{additional.UsedLearningGoal}' for skill '{additional.SkillName}' was not resolved.");
-                    continue;
-                }
-
-                var createdPrerequisite = await CreateTaskPrerequisiteAsync(client, taskId.Value, objectiveId.Value, additional.Justification, result, cancellationToken);
-                if (createdPrerequisite)
-                {
-                    result.CreatedPrerequisites++;
-                }
-            }
-        }
-
-        return result;
-    }
-
-    private List<TaskPayloadRecord> ParseTasks(string path, ScriptRunResult result)
-    {
-        var tasks = new List<TaskPayloadRecord>();
+        // ============================================
         var buffer = new StringBuilder();
         var braceCount = 0;
 
         foreach (var line in File.ReadLines(path))
         {
             if (string.IsNullOrWhiteSpace(line))
-            {
                 continue;
-            }
-
-            if (line.TrimStart().StartsWith("//", StringComparison.Ordinal))
-            {
-                continue;
-            }
 
             buffer.AppendLine(line);
 
             foreach (var ch in line)
             {
-                if (ch == '{')
-                {
-                    braceCount++;
-                }
-                else if (ch == '}')
-                {
-                    braceCount--;
-                }
+                if (ch == '{') braceCount++;
+                if (ch == '}') braceCount--;
             }
 
-            if (braceCount == 0 && buffer.Length > 0)
-            {
-                try
-                {
-                    var payload = JsonSerializer.Deserialize<TaskPayloadRecord>(buffer.ToString(), SerializerOptions);
-                    if (payload is not null && !string.IsNullOrWhiteSpace(payload.TaskName))
-                    {
-                        tasks.Add(payload);
-                    }
-                }
-                catch (JsonException)
-                {
-                    result.Errors.Add("Skipped one malformed JSON task object from tasks file.");
-                }
+            if (braceCount != 0)
+                continue;
 
+            var json = buffer.ToString();
+
+            TaskPayload? task;
+            try
+            {
+                task = JsonSerializer.Deserialize<TaskPayload>(json);
+            }
+            catch
+            {
                 buffer.Clear();
-            }
-        }
-
-        return tasks;
-    }
-
-    private async Task<Guid?> CreateTaskItemAsync(
-        HttpClient client,
-        int pathId,
-        int mainSkillId,
-        TaskPayloadRecord payload,
-        ScriptRunResult result,
-        CancellationToken cancellationToken)
-    {
-        var request = new CreateTaskItemApiRequest
-        {
-            PathId = pathId,
-            MainSkillId = mainSkillId,
-            TaskData = JsonSerializer.Serialize(payload),
-            SearchVector = DefaultSearchVector
-        };
-
-        var response = await client.PostAsJsonAsync("/api/TaskItems", request, cancellationToken);
-        if (!response.IsSuccessStatusCode)
-        {
-            var error = await response.Content.ReadAsStringAsync(cancellationToken);
-            result.Errors.Add($"Task '{payload.TaskName}' was not created. API returned {(int)response.StatusCode}: {error}");
-            return null;
-        }
-
-        var created = await response.Content.ReadFromJsonAsync<TaskItemResponseApi>(SerializerOptions, cancellationToken);
-        if (created is null || created.Id == Guid.Empty)
-        {
-            result.Errors.Add($"Task '{payload.TaskName}' was created but response did not include a valid task id.");
-            return null;
-        }
-
-        result.CreatedTasks++;
-        return created.Id;
-    }
-
-    private async Task<int?> ResolveLearningObjectiveIdAsync(
-        HttpClient client,
-        int skillId,
-        int localGoalId,
-        Dictionary<int, Dictionary<int, int>> objectiveCache,
-        CancellationToken cancellationToken)
-    {
-        if (!learningObjectives.TryGetValue(skillId, out var localObjectives) ||
-            !localObjectives.TryGetValue(localGoalId, out var localDescription))
-        {
-            return null;
-        }
-
-        if (!objectiveCache.TryGetValue(skillId, out var mappedObjectives))
-        {
-            var response = await client.GetAsync($"/api/LearningObjectives/by-skill/{skillId}", cancellationToken);
-            if (!response.IsSuccessStatusCode)
-            {
-                return null;
+                continue;
             }
 
-            var apiObjectives = await response.Content.ReadFromJsonAsync<List<LearningObjectiveResponseApi>>(SerializerOptions, cancellationToken)
-                ?? [];
-
-            var byDescription = apiObjectives
-                .GroupBy(x => NormalizeTextKey(x.Description))
-                .ToDictionary(g => g.Key, g => g.First().Id);
-
-            mappedObjectives = new Dictionary<int, int>();
-            foreach (var objective in localObjectives)
+            if (task == null)
             {
-                var normalized = NormalizeTextKey(objective.Value);
-                if (byDescription.TryGetValue(normalized, out var resolvedId))
+                buffer.Clear();
+                continue;
+            }
+
+            if (!skills.TryGetValue(task.SkillCategory, out var skillId))
+            {
+                Console.WriteLine($"Unknown skill: {task.SkillCategory}");
+                buffer.Clear();
+                continue;
+            }
+
+            // ============================================
+            // ✅ CREATE TASK ITEM
+            // ============================================
+            using var taskDataDocument = JsonDocument.Parse(json);
+
+            var createDto = new CreateTaskItemDto
+            {
+                PathId = 5,
+                MainSkillId = skillId,
+                TaskData = taskDataDocument,
+                SearchVector = new float[4096]
+            };
+
+            var taskResponse = await client.PostAsJsonAsync("api/taskitems", createDto);
+            taskResponse.EnsureSuccessStatusCode();
+
+            var taskResponseJson = await taskResponse.Content.ReadAsStringAsync();
+
+            using var doc = JsonDocument.Parse(taskResponseJson);
+
+            Guid taskId =
+                doc.RootElement.TryGetProperty("id", out var idProp)
+                    ? idProp.GetGuid()
+                    : doc.RootElement.GetProperty("data").GetProperty("id").GetGuid();
+
+            Console.WriteLine($"Created Task: {task.TaskName}");
+
+            // ============================================
+            // ✅ TARGET OBJECTIVES (FIXED)
+            // ============================================
+            foreach (var localObjectiveId in task.TargetedObjectives)
+            {
+                if (!learningObjectives.ContainsKey(skillId) ||
+                    !learningObjectives[skillId].TryGetValue(localObjectiveId, out var text))
                 {
-                    mappedObjectives[objective.Key] = resolvedId;
+                    Console.WriteLine($"Local objective not found: {localObjectiveId}");
+                    continue;
                 }
+
+                var normalized = Normalize(text);
+
+                if (!dbObjectivesByText.TryGetValue(normalized, out var dbId))
+                {
+                    Console.WriteLine($"❌ NOT FOUND IN DB: {text}");
+                    continue;
+                }
+
+                var targetDto = new CreateTaskTargetDto
+                {
+                    TaskId = taskId,
+                    LearningObjectiveId = dbId
+                };
+
+                await client.PostAsJsonAsync("api/tasktargets", targetDto);
+
+                Console.WriteLine($"✔ Linked Local {localObjectiveId} → DB {dbId}");
             }
 
-            objectiveCache[skillId] = mappedObjectives;
+            // ============================================
+            // ✅ PREREQUISITES (FIXED)
+            // ============================================
+            foreach (var additional in task.AdditionalSkillsRequired)
+            {
+                if (!skills.TryGetValue(additional.SkillName, out var additionalSkillId))
+                    continue;
+
+                if (!learningObjectives.ContainsKey(additionalSkillId) ||
+                    !learningObjectives[additionalSkillId]
+                        .TryGetValue(additional.UsedLearningGoal, out var text))
+                    continue;
+
+                var normalized = Normalize(text);
+
+                if (!dbObjectivesByText.TryGetValue(normalized, out var dbId))
+                {
+                    Console.WriteLine($"❌ PREREQ NOT FOUND: {text}");
+                    continue;
+                }
+
+                var prerequisiteDto = new CreateTaskPrerequisiteDto
+                {
+                    TaskId = taskId,
+                    LearningObjectiveId = dbId,
+                    Justification = additional.Justification
+                };
+
+                await client.PostAsJsonAsync("api/taskprerequisites", prerequisiteDto);
+            }
+
+            Console.WriteLine("------------------------------");
+
+            buffer.Clear();
         }
-
-        return mappedObjectives.TryGetValue(localGoalId, out var id) ? id : null;
-    }
-
-    private static async Task<bool> CreateTaskTargetAsync(
-        HttpClient client,
-        Guid taskId,
-        int objectiveId,
-        ScriptRunResult result,
-        CancellationToken cancellationToken)
-    {
-        var request = new CreateTaskTargetApiRequest
-        {
-            TaskId = taskId,
-            LearningObjectiveId = objectiveId
-        };
-
-        var response = await client.PostAsJsonAsync("/api/TaskTargets", request, cancellationToken);
-        if (!response.IsSuccessStatusCode)
-        {
-            var error = await response.Content.ReadAsStringAsync(cancellationToken);
-            result.Errors.Add($"Target was not created for task '{taskId}' and objective '{objectiveId}'. API returned {(int)response.StatusCode}: {error}");
-            return false;
-        }
-
-        return true;
-    }
-
-    private static async Task<bool> CreateTaskPrerequisiteAsync(
-        HttpClient client,
-        Guid taskId,
-        int objectiveId,
-        string? justification,
-        ScriptRunResult result,
-        CancellationToken cancellationToken)
-    {
-        var request = new CreateTaskPrerequisiteApiRequest
-        {
-            TaskId = taskId,
-            LearningObjectiveId = objectiveId,
-            Justification = justification
-        };
-
-        var response = await client.PostAsJsonAsync("/api/TaskPrerequisites", request, cancellationToken);
-        if (!response.IsSuccessStatusCode)
-        {
-            var error = await response.Content.ReadAsStringAsync(cancellationToken);
-            result.Errors.Add($"Prerequisite was not created for task '{taskId}' and objective '{objectiveId}'. API returned {(int)response.StatusCode}: {error}");
-            return false;
-        }
-
-        return true;
-    }
-
-    private static string NormalizeTextKey(string value)
-    {
-        return string.Join(' ', value
-            .Trim()
-            .ToLowerInvariant()
-            .Split(' ', StringSplitOptions.RemoveEmptyEntries));
-    }
-
-    private sealed class CreateTaskItemApiRequest
-    {
-        public int PathId { get; set; }
-        public int MainSkillId { get; set; }
-        public string? TaskData { get; set; }
-        public float[]? SearchVector { get; set; }
-    }
-
-    private sealed class CreateTaskPrerequisiteApiRequest
-    {
-        public Guid TaskId { get; set; }
-        public int LearningObjectiveId { get; set; }
-        public string? Justification { get; set; }
-    }
-
-    private sealed class CreateTaskTargetApiRequest
-    {
-        public Guid TaskId { get; set; }
-        public int LearningObjectiveId { get; set; }
-    }
-
-    private sealed class TaskItemResponseApi
-    {
-        public Guid Id { get; set; }
-    }
-
-    private sealed class LearningObjectiveResponseApi
-    {
-        public int Id { get; set; }
-        public string Description { get; set; } = string.Empty;
-    }
-
-    private sealed class TaskPayloadRecord
-    {
-        [JsonPropertyName("task_name")]
-        public string TaskName { get; set; } = string.Empty;
-
-        [JsonPropertyName("skill_category")]
-        public string SkillCategory { get; set; } = string.Empty;
-
-        [JsonPropertyName("scenario")]
-        public object? Scenario { get; set; }
-
-        [JsonPropertyName("targeted_objectives")]
-        public List<int> TargetedObjectives { get; set; } = [];
-
-        [JsonPropertyName("additional_skills_required")]
-        public List<AdditionalSkillPayloadRecord> AdditionalSkillsRequired { get; set; } = [];
-    }
-
-    private sealed class AdditionalSkillPayloadRecord
-    {
-        [JsonPropertyName("skill_name")]
-        public string SkillName { get; set; } = string.Empty;
-
-        [JsonPropertyName("used_learning_goal")]
-        public int UsedLearningGoal { get; set; }
-
-        [JsonPropertyName("justification")]
-        public string Justification { get; set; } = string.Empty;
     }
 }
-
-public class ScriptRunResult
-{
-    public int ParsedTasks { get; set; }
-    public int CreatedTasks { get; set; }
-    public int CreatedTargets { get; set; }
-    public int CreatedPrerequisites { get; set; }
-    public List<string> Errors { get; set; } = [];
-}
-

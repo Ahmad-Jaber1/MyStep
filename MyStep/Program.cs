@@ -1,7 +1,12 @@
+using System.Threading.Tasks;
+using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using Pgvector.EntityFrameworkCore;
 using Repository;
 using Services;
+using Services.Common;
 using Services.Interfaces;
 
 namespace MyStep;
@@ -11,23 +16,48 @@ public class Program
     public static void Main(string[] args)
     {
         var builder = WebApplication.CreateBuilder(args);
+        
 
         // Add services to the container.
         builder.Services.AddControllers();
         builder.Services.AddHttpClient();
-        builder.Services.AddScoped<Script>();
+        
+
+        var jwtOptions = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>() ?? new JwtOptions();
+        builder.Services.AddSingleton(jwtOptions);
+
+        builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+            .AddJwtBearer(options =>
+            {
+                options.TokenValidationParameters = new TokenValidationParameters
+                {
+                    ValidateIssuer = true,
+                    ValidateAudience = true,
+                    ValidateIssuerSigningKey = true,
+                    ValidateLifetime = true,
+                    ValidIssuer = jwtOptions.Issuer,
+                    ValidAudience = jwtOptions.Audience,
+                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.SecretKey)),
+                    ClockSkew = TimeSpan.Zero
+                };
+            });
+
         builder.Services.AddScoped<IPathItemRepo, PathItemRepo>();
         builder.Services.AddScoped<ISkillRepo, SkillRepo>();
         builder.Services.AddScoped<ILearningObjectiveRepo, LearningObjectiveRepository>();
         builder.Services.AddScoped<ITaskItemRepo, TaskItemRepo>();
         builder.Services.AddScoped<ITaskPrerequisiteRepo, TaskPrerequisiteRepo>();
         builder.Services.AddScoped<ITaskTargetRepo, TaskTargetRepo>();
+        builder.Services.AddScoped<IStudentRepo, StudentRepo>();
+        builder.Services.AddScoped<IStudentLearningObjectiveRepo, StudentLearningObjectiveRepo>();
         builder.Services.AddScoped<IPathItemService, PathItemService>();
         builder.Services.AddScoped<ISkillService, SkillService>();
         builder.Services.AddScoped<ILearningObjectiveService, LearningObjectiveService>();
         builder.Services.AddScoped<ITaskItemService, TaskItemService>();
         builder.Services.AddScoped<ITaskPrerequisiteService, TaskPrerequisiteService>();
         builder.Services.AddScoped<ITaskTargetService, TaskTargetService>();
+        builder.Services.AddScoped<IStudentService, StudentService>();
+        builder.Services.AddScoped<IStudentLearningObjectiveService, StudentLearningObjectiveService>();
 
         // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
         builder.Services.AddOpenApi();
@@ -45,6 +75,7 @@ public class Program
         }
 
         app.UseHttpsRedirection();
+        app.UseAuthentication();
         app.UseAuthorization();
         app.MapControllers();
 
