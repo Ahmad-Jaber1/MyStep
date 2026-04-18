@@ -80,4 +80,42 @@ public class AuthController : ControllerBase
 
         return Ok(result.Data);
     }
+
+    [HttpPost("welcome-assessment")]
+    [Authorize]
+    public async Task<IActionResult> SubmitWelcomeAssessment([FromBody] SubmitWelcomeAssessmentDto dto)
+    {
+        var studentIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!Guid.TryParse(studentIdClaim, out var studentId))
+        {
+            return Unauthorized("Invalid auth token.");
+        }
+
+        var result = await _studentService.SubmitWelcomeAssessmentAsync(studentId, dto);
+        if (!result.IsSuccess)
+        {
+            return BadRequest(result.ErrorMessage);
+        }
+
+        return Ok(new { success = true });
+    }
+
+    [HttpPut("selected-path")]
+    [Authorize]
+    public async Task<IActionResult> SelectPath([FromBody] SelectPathDto dto)
+    {
+        var studentIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!Guid.TryParse(studentIdClaim, out var studentId))
+        {
+            return Unauthorized("Invalid auth token.");
+        }
+
+        var result = await _studentService.SelectPathAsync(studentId, dto);
+        if (!result.IsSuccess)
+        {
+            return BadRequest(result.ErrorMessage);
+        }
+
+        return Ok(result.Data);
+    }
 }

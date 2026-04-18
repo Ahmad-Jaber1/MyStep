@@ -28,6 +28,10 @@ namespace Repository.TablesConfiguration
             builder.Property(s => s.CreatedAt)
                 .IsRequired();
 
+            builder.Property(s => s.HasCompletedWelcomeAssessment)
+                .HasDefaultValue(false)
+                .IsRequired();
+
             builder.HasOne(s => s.SelectedPath)
                 .WithMany()
                 .HasForeignKey(s => s.SelectedPathId)

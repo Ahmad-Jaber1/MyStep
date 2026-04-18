@@ -14,12 +14,21 @@ public class StudentService : IStudentService
 {
     private readonly IStudentRepo _studentRepo;
     private readonly IPathItemRepo _pathItemRepo;
+    private readonly ILearningObjectiveRepo _learningObjectiveRepo;
+    private readonly IStudentLearningObjectiveRepo _studentLearningObjectiveRepo;
     private readonly JwtOptions _jwtOptions;
 
-    public StudentService(IStudentRepo studentRepo, IPathItemRepo pathItemRepo, JwtOptions jwtOptions)
+    public StudentService(
+        IStudentRepo studentRepo,
+        IPathItemRepo pathItemRepo,
+        ILearningObjectiveRepo learningObjectiveRepo,
+        IStudentLearningObjectiveRepo studentLearningObjectiveRepo,
+        JwtOptions jwtOptions)
     {
         _studentRepo = studentRepo;
         _pathItemRepo = pathItemRepo;
+        _learningObjectiveRepo = learningObjectiveRepo;
+        _studentLearningObjectiveRepo = studentLearningObjectiveRepo;
         _jwtOptions = jwtOptions;
     }
 
@@ -218,8 +227,133 @@ public class StudentService : IStudentService
         {
             Id = student.Id,
             FullName = student.FullName,
-            Email = student.Email
+            Email = student.Email,
+            RequiresWelcomeAssessment = !student.HasCompletedWelcomeAssessment
         });
+    }
+
+    public async Task<Result<StudentResponseDto>> SelectPathAsync(Guid studentId, SelectPathDto dto)
+    {
+        if (studentId == Guid.Empty)
+        {
+            return Result<StudentResponseDto>.Failure("Student id is required.");
+        }
+
+        if (dto is null)
+        {
+            return Result<StudentResponseDto>.Failure("Select path payload is required.");
+        }
+
+        if (dto.SelectedPathId <= 0)
+        {
+            return Result<StudentResponseDto>.Failure("Selected path id must be greater than zero.");
+        }
+
+        var student = await _studentRepo.GetByIdAsync(studentId);
+        if (student is null)
+        {
+            return Result<StudentResponseDto>.Failure("Student was not found.");
+        }
+
+        var path = await _pathItemRepo.GetByIdAsync(dto.SelectedPathId);
+        if (path is null)
+        {
+            return Result<StudentResponseDto>.Failure($"Path with id {dto.SelectedPathId} was not found.");
+        }
+
+        student.SelectedPathId = dto.SelectedPathId;
+        await _studentRepo.UpdateAsync(student);
+
+        return Result<StudentResponseDto>.Success(MapToResponse(student));
+    }
+
+    public async Task<Result<bool>> SubmitWelcomeAssessmentAsync(Guid studentId, SubmitWelcomeAssessmentDto dto)
+    {
+        if (studentId == Guid.Empty)
+        {
+            return Result<bool>.Failure("Student id is required.");
+        }
+
+        if (dto is null)
+        {
+            return Result<bool>.Failure("Welcome assessment payload is required.");
+        }
+
+        if (dto.Objectives is null || dto.Objectives.Count == 0)
+        {
+            return Result<bool>.Failure("At least one objective score is required.");
+        }
+
+        var student = await _studentRepo.GetByIdAsync(studentId);
+        if (student is null)
+        {
+            return Result<bool>.Failure("Student was not found.");
+        }
+
+        if (student.HasCompletedWelcomeAssessment)
+        {
+            return Result<bool>.Failure("Welcome assessment is already completed.");
+        }
+
+        var duplicateObjectiveIds = dto.Objectives
+            .GroupBy(x => x.LearningObjectiveId)
+            .Where(g => g.Count() > 1)
+            .Select(g => g.Key)
+            .ToList();
+
+        if (duplicateObjectiveIds.Count > 0)
+        {
+            return Result<bool>.Failure("Each learning objective can appear only once in welcome assessment.");
+        }
+
+        var mappedObjectives = new List<(int LearningObjectiveId, double MappedScore)>();
+
+        foreach (var objective in dto.Objectives)
+        {
+            if (objective.LearningObjectiveId <= 0)
+            {
+                return Result<bool>.Failure("Learning objective id must be greater than zero.");
+            }
+
+            if (!TryMapWelcomeScore(objective.Score, out var mappedScore))
+            {
+                return Result<bool>.Failure("Welcome assessment score must be one of: 0, 1, 2, 3, 4.");
+            }
+
+            var learningObjective = await _learningObjectiveRepo.GetByIdAsync(objective.LearningObjectiveId);
+            if (learningObjective is null)
+            {
+                return Result<bool>.Failure($"Learning objective with id {objective.LearningObjectiveId} was not found.");
+            }
+
+            mappedObjectives.Add((objective.LearningObjectiveId, mappedScore));
+        }
+
+        foreach (var objective in mappedObjectives)
+        {
+            var existing = await _studentLearningObjectiveRepo.GetByIdAsync(studentId, objective.LearningObjectiveId);
+            if (existing is null)
+            {
+                await _studentLearningObjectiveRepo.AddAsync(new StudentLearningObjective
+                {
+                    StudentId = studentId,
+                    LearningObjectiveId = objective.LearningObjectiveId,
+                    Score = objective.MappedScore,
+                    LastUpdated = DateTime.UtcNow
+                });
+
+                continue;
+            }
+
+            existing.Score = objective.MappedScore;
+            existing.LastUpdated = DateTime.UtcNow;
+            await _studentLearningObjectiveRepo.UpdateAsync(existing);
+        }
+
+        student.HasCompletedWelcomeAssessment = true;
+        await _studentRepo.UpdateAsync(student);
+
+        return Result<bool>.Success(true);
     }
 
     private async Task<string?> ValidateStudentPayloadAsync(
@@ -313,7 +447,44 @@ public class StudentService : IStudentService
             FullName = student.FullName,
             Email = student.Email,
             SelectedPathId = student.SelectedPathId,
+            RequiresWelcomeAssessment = !student.HasCompletedWelcomeAssessment,
             CreatedAt = student.CreatedAt
         };
+    }
+
+    private static bool TryMapWelcomeScore(int inputScore, out double mappedScore)
+    {
+        if (inputScore == 0)
+        {
+            mappedScore = 0.0;
+            return true;
+        }
+
+        if (inputScore == 1)
+        {
+            mappedScore = 0.2;
+            return true;
+        }
+
+        if (inputScore == 2)
+        {
+            mappedScore = 0.4;
+            return true;
+        }
+
+        if (inputScore == 3)
+        {
+            mappedScore = 0.6;
+            return true;
+        }
+
+        if (inputScore == 4)
+        {
+            mappedScore = 0.65;
+            return true;
+        }
+
+        mappedScore = 0;
+        return false;
     }
 }

@@ -15,6 +15,8 @@ namespace Models
 
         public int? SelectedPathId { get; set; }
 
+        public bool HasCompletedWelcomeAssessment { get; set; } = false;
+
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         public PathItem? SelectedPath { get; set; }

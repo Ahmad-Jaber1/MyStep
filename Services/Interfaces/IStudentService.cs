@@ -15,4 +15,6 @@ public interface IStudentService
     Task<Result<AuthResponseDto>> SignInAsync(SignInStudentDto dto);
     Task<Result<bool>> SignOutAsync(Guid studentId);
     Task<Result<CurrentStudentDto>> GetCurrentStudentAsync(Guid studentId);
+    Task<Result<StudentResponseDto>> SelectPathAsync(Guid studentId, SelectPathDto dto);
+    Task<Result<bool>> SubmitWelcomeAssessmentAsync(Guid studentId, SubmitWelcomeAssessmentDto dto);
 }

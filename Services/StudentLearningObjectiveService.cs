@@ -87,10 +87,15 @@ public class StudentLearningObjectiveService : IStudentLearningObjectiveService
             return Result<StudentLearningObjectiveResponseDto>.Failure("Student learning objective payload is required.");
         }
 
-        var validationError = await ValidatePayloadAsync(dto.StudentId, dto.LearningObjectiveId, dto.Score);
+        var validationError = await ValidatePayloadAsync(dto.StudentId, dto.LearningObjectiveId);
         if (validationError is not null)
         {
             return Result<StudentLearningObjectiveResponseDto>.Failure(validationError);
+        }
+
+        if (!TryMapCreateScore(dto.Score, out var mappedScore))
+        {
+            return Result<StudentLearningObjectiveResponseDto>.Failure("Score for create must be one of: 0, 1, 2, 3, 4.");
         }
 
         var existing = await _studentLearningObjectiveRepo.GetByIdAsync(dto.StudentId, dto.LearningObjectiveId);
@@ -103,7 +108,7 @@ public class StudentLearningObjectiveService : IStudentLearningObjectiveService
         {
             StudentId = dto.StudentId,
             LearningObjectiveId = dto.LearningObjectiveId,
-            Score = dto.Score,
+            Score = mappedScore,
             LastUpdated = DateTime.UtcNow
         };
 
@@ -165,17 +170,12 @@ public class StudentLearningObjectiveService : IStudentLearningObjectiveService
         return Result<bool>.Success(true);
     }
 
-    private async Task<string?> ValidatePayloadAsync(Guid studentId, int learningObjectiveId, double score)
+    private async Task<string?> ValidatePayloadAsync(Guid studentId, int learningObjectiveId)
     {
         var identityValidationError = ValidateIdentity(studentId, learningObjectiveId);
         if (identityValidationError is not null)
         {
             return identityValidationError;
-        }
-
-        if (score < 0 || score > 100)
-        {
-            return "Score must be between 0 and 100.";
         }
 
         var student = await _studentRepo.GetByIdAsync(studentId);
@@ -191,6 +191,42 @@ public class StudentLearningObjectiveService : IStudentLearningObjectiveService
         }
 
         return null;
+    }
+
+    private static bool TryMapCreateScore(double inputScore, out double mappedScore)
+    {
+        if (inputScore == 0)
+        {
+            mappedScore = 0.0;
+            return true;
+        }
+
+        if (inputScore == 1)
+        {
+            mappedScore = 0.2;
+            return true;
+        }
+
+        if (inputScore == 2)
+        {
+            mappedScore = 0.4;
+            return true;
+        }
+
+        if (inputScore == 3)
+        {
+            mappedScore = 0.6;
+            return true;
+        }
+
+        if (inputScore == 4)
+        {
+            mappedScore = 0.65;
+            return true;
+        }
+
+        mappedScore = 0;
+        return false;
     }
 
     private static string? ValidateIdentity(Guid studentId, int learningObjectiveId)

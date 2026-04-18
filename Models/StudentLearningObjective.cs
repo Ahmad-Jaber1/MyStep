@@ -8,7 +8,7 @@ namespace Models
 
         public int LearningObjectiveId { get; set; }
 
-        
+        public int StreakCount { get; set; } = 1;
 
         public double Score { get; set; }
 

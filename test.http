@@ -1,16 +1,29 @@
-### Create Task Item
-POST https://localhost:7147/api/taskItems
+POST  https://localhost:7147/api/auth/signup 
 Content-Type: application/json
 
 {
-  "pathId": 5,
-  "mainSkillId": 3,
-  "taskData":{
-
-"Example": "task description"
-    },
-      "searchVector": [0.12, 0.55, 0.78, 0.91]
+  "FullName": "Ahmad Jaber",
+  "Email": "ahmad.jaber@example.com",
+  "Password": "Ahmad123"
 }
 
 ###
-GET https://localhost:7147/api/taskItem 
+POST  https://localhost:7147/api/auth/signin 
+Content-Type: application/json
+
+{
+  
+  "Email": "ahmad.jaber@example.com",
+  "Password": "Ahmad123"
+}
+
+###
+GET  https://localhost:7147/api/StudentLearningObjectives
+Content-Type: application/json
+Authorization: Bearer ayJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwOi8vc2NoZW1hcy54bWxzb2FwLm9yZy93cy8yMDA1LzA1L2lkZW50aXR5L2NsYWltcy9uYW1laWRlbnRpZmllciI6ImQ1NDZhYjAwLTAyNGQtNDJiNC04MzdjLTlkNDJkYTRmYTI4MSIsImh0dHA6Ly9zY2hlbWFzLnhtbHNvYXAub3JnL3dzLzIwMDUvMDUvaWRlbnRpdHkvY2xhaW1zL25hbWUiOiJBaG1hZCBKYWJlciIsImh0dHA6Ly9zY2hlbWFzLnhtbHNvYXAub3JnL3dzLzIwMDUvMDUvaWRlbnRpdHkvY2xhaW1zL2VtYWlsYWRkcmVzcyI6ImFobWFkLmphYmVyQGV4YW1wbGUuY29tIiwiZXhwIjoxNzc2NTA5NzA5LCJpc3MiOiJNeVN0ZXAuQXBpIiwiYXVkIjoiTXlTdGVwLkNsaWVudCJ9.rpFcxGm2cr4cVeSp_Z7TRWQzXmOXSPguXOFBTMY7h3Y
+
+
+
+###
+GET  https://localhost:7147/api/Students/d546ab00-024d-42b4-837c-9d42da4fa281
+Content-Type: application/json
