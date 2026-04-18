@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "62ISPWoH/FU=",
+  "dgSpecHash": "a81nlPLm40M=",
   "success": true,
   "projectFilePath": "/home/ahmad-jaber/Documents/GraduateProject/MyStep/Services/Services.csproj",
   "expectedPackageFiles": [
@@ -28,6 +28,10 @@
     "/home/ahmad-jaber/.nuget/packages/microsoft.extensions.options/10.0.5/microsoft.extensions.options.10.0.5.nupkg.sha512",
     "/home/ahmad-jaber/.nuget/packages/microsoft.extensions.options.configurationextensions/9.0.0/microsoft.extensions.options.configurationextensions.9.0.0.nupkg.sha512",
     "/home/ahmad-jaber/.nuget/packages/microsoft.extensions.primitives/10.0.5/microsoft.extensions.primitives.10.0.5.nupkg.sha512",
+    "/home/ahmad-jaber/.nuget/packages/microsoft.identitymodel.abstractions/8.14.0/microsoft.identitymodel.abstractions.8.14.0.nupkg.sha512",
+    "/home/ahmad-jaber/.nuget/packages/microsoft.identitymodel.jsonwebtokens/8.14.0/microsoft.identitymodel.jsonwebtokens.8.14.0.nupkg.sha512",
+    "/home/ahmad-jaber/.nuget/packages/microsoft.identitymodel.logging/8.14.0/microsoft.identitymodel.logging.8.14.0.nupkg.sha512",
+    "/home/ahmad-jaber/.nuget/packages/microsoft.identitymodel.tokens/8.14.0/microsoft.identitymodel.tokens.8.14.0.nupkg.sha512",
     "/home/ahmad-jaber/.nuget/packages/npgsql/9.0.4/npgsql.9.0.4.nupkg.sha512",
     "/home/ahmad-jaber/.nuget/packages/npgsql.dependencyinjection/9.0.4/npgsql.dependencyinjection.9.0.4.nupkg.sha512",
     "/home/ahmad-jaber/.nuget/packages/npgsql.entityframeworkcore.postgresql/9.0.4/npgsql.entityframeworkcore.postgresql.9.0.4.nupkg.sha512",
@@ -38,7 +42,8 @@
     "/home/ahmad-jaber/.nuget/packages/opentelemetry.extensions.hosting/1.15.0/opentelemetry.extensions.hosting.1.15.0.nupkg.sha512",
     "/home/ahmad-jaber/.nuget/packages/pgvector/0.3.2/pgvector.0.3.2.nupkg.sha512",
     "/home/ahmad-jaber/.nuget/packages/pgvector.entityframeworkcore/0.3.0/pgvector.entityframeworkcore.0.3.0.nupkg.sha512",
-    "/home/ahmad-jaber/.nuget/packages/system.diagnostics.diagnosticsource/10.0.5/system.diagnostics.diagnosticsource.10.0.5.nupkg.sha512"
+    "/home/ahmad-jaber/.nuget/packages/system.diagnostics.diagnosticsource/10.0.5/system.diagnostics.diagnosticsource.10.0.5.nupkg.sha512",
+    "/home/ahmad-jaber/.nuget/packages/system.identitymodel.tokens.jwt/8.14.0/system.identitymodel.tokens.jwt.8.14.0.nupkg.sha512"
   ],
   "logs": []
 }

@@ -1,6 +1,6 @@
+using System.Text.Json;
 using Models;
 using Pgvector;
-using Services.Common;
 using Services.DTOs;
 using Services.Interfaces;
 using Shared.Results;
@@ -94,7 +94,7 @@ public class TaskItemService : ITaskItemService
             Id = Guid.NewGuid(),
             PathId = dto.PathId,
             MainSkillId = dto.MainSkillId,
-            TaskData = TextNormalizer.NormalizeRequired(dto.TaskData)!,
+            TaskData = dto.TaskData!,
             SearchVector = new Vector(dto.SearchVector!)
         };
 
@@ -128,7 +128,7 @@ public class TaskItemService : ITaskItemService
 
         existingTask.PathId = dto.PathId;
         existingTask.MainSkillId = dto.MainSkillId;
-        existingTask.TaskData = TextNormalizer.NormalizeRequired(dto.TaskData)!;
+        existingTask.TaskData = dto.TaskData!;
         existingTask.SearchVector = new Vector(dto.SearchVector!);
 
         await _taskItemRepo.UpdateAsync(existingTask);
@@ -152,7 +152,7 @@ public class TaskItemService : ITaskItemService
         return Result<bool>.Success(true);
     }
 
-    private async Task<string?> ValidateTaskPayloadAsync(int pathId, int mainSkillId, string? taskData, float[]? searchVector)
+    private async Task<string?> ValidateTaskPayloadAsync(int pathId, int mainSkillId, JsonDocument? taskData, float[]? searchVector)
     {
         if (pathId <= 0)
         {
@@ -176,8 +176,7 @@ public class TaskItemService : ITaskItemService
             return $"Skill with id {mainSkillId} was not found.";
         }
 
-        var normalizedTaskData = TextNormalizer.NormalizeRequired(taskData);
-        if (normalizedTaskData is null)
+        if (taskData is null)
         {
             return "Task data is required.";
         }
@@ -187,10 +186,10 @@ public class TaskItemService : ITaskItemService
             return "Task search vector is required.";
         }
 
-        if (searchVector.Length != 4096)
-        {
-            return "Task search vector must contain exactly 4096 values.";
-        }
+        //if (searchVector.Length != 4096)
+        //{
+          //  return "Task search vector must contain exactly 4096 values.";
+        //}
 
         return null;
     }

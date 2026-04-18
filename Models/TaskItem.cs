@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Pgvector;
+using System.Text.Json;
 
 namespace Models
 {
@@ -16,7 +17,7 @@ namespace Models
         public int MainSkillId { get; set; }
 
 
-        public string TaskData { get; set; } = null!;
+        public JsonDocument TaskData { get; set; } = null!;
         // JSON:
         // {
         //   "scenario": "...",
