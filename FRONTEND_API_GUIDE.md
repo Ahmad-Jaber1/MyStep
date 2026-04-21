@@ -1,3 +1,4 @@
+@baseUrl = http://68.221.175.88:5000
 # Frontend API Guide
 
 This document is for the frontend team. It only includes the APIs needed for the current flow:
@@ -230,6 +231,91 @@ Each learning objective object:
 - `id`: integer
 - `skillId`: integer
 - `description`: string
+
+### 6.1) Get Path by Id
+
+`GET /api/paths/{id}`
+
+Use this when the dashboard opens a specific path details page.
+
+Path parameter:
+- `id`: integer
+
+Success response: `PathItemResponseDto`
+```json
+{
+  "id": 1,
+  "name": "Backend Development",
+  "description": "Learn backend basics and advanced topics"
+}
+```
+
+### 6.2) Get All Skills
+
+`GET /api/skills`
+
+Use this for admin/dashboard screens that show all skills across all paths.
+
+Success response: array of `SkillResponseDto`
+
+### 6.3) Get Skill by Id
+
+`GET /api/skills/{id}`
+
+Use this for skill details pages.
+
+Path parameter:
+- `id`: integer
+
+Success response: `SkillResponseDto`
+
+### 6.4) Get All Learning Objectives
+
+`GET /api/learningobjectives`
+
+Use this for admin/dashboard views that need a full catalog of objectives.
+
+Success response: array of `LearningObjectiveResponseDto`
+
+### 6.5) Get Learning Objective by Id
+
+`GET /api/learningobjectives/{id}`
+
+Use this for a single learning objective details screen.
+
+Path parameter:
+- `id`: integer
+
+Success response: `LearningObjectiveResponseDto`
+
+### 6.6) Dashboard Progress APIs (Student Learning Objectives)
+
+These endpoints are useful for student-progress widgets and analytics cards in the dashboard.
+All endpoints below require:
+```http
+Authorization: Bearer <token>
+```
+
+`GET /api/studentlearningobjectives`
+- Get all student-learning-objective records.
+
+`GET /api/studentlearningobjectives/{studentId}/{learningObjectiveId}`
+- Get one student-learning-objective record by composite key.
+
+`GET /api/studentlearningobjectives/by-student/{studentId}`
+- Get all learning-objective records for one student (very useful for progress dashboard).
+
+`GET /api/studentlearningobjectives/by-learning-objective/{learningObjectiveId}`
+- Get all students' records for one learning objective.
+
+### 6.7) Important Availability Note
+
+There is currently no direct endpoint:
+- `GET /api/learningobjectives/by-path/{pathId}`
+
+To load learning objectives for a path, use this sequence:
+1. `GET /api/skills/by-path/{pathId}`
+2. For each returned skill, call `GET /api/learningobjectives/by-skill/{skillId}`
 
 ## Choose Path
 

@@ -1,29 +1,533 @@
-POST  https://localhost:7147/api/auth/signup 
+@baseUrl = http://68.221.175.88:5000/api
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwOi8vc2NoZW1hcy54bWxzb2FwLm9yZy93cy8yMDA1LzA1L2lkZW50aXR5L2NsYWltcy9uYW1laWRlbnRpZmllciI6ImQ1NDZhYjAwLTAyNGQtNDJiNC04MzdjLTlkNDJkYTRmYTI4MSIsImh0dHA6Ly9zY2hlbWFzLnhtbHNvYXAub3JnL3dzLzIwMDUvMDUvaWRlbnRpdHkvY2xhaW1zL25hbWUiOiJBaG1hZCBKYWJlciIsImh0dHA6Ly9zY2hlbWFzLnhtbHNvYXAub3JnL3dzLzIwMDUvMDUvaWRlbnRpdHkvY2xhaW1zL2VtYWlsYWRkcmVzcyI6ImFobWFkLmphYmVyQGV4YW1wbGUuY29tIiwiZXhwIjoxNzc2NTIxODA4LCJpc3MiOiJNeVN0ZXAuQXBpIiwiYXVkIjoiTXlTdGVwLkNsaWVudCJ9.5X1ENjglYrgAUCI9f-e35lrDaSb4Mva4Q4KO5f0LUkI
+###
+POST {{baseUrl}}/TaskSearchVectors/rebuild-all
+Content-Content-Type: application/json
+
+
+###
+GET {{baseUrl}}/paths
+###
+GET {{baseUrl}}/skills
+
+###
+POST {{baseUrl}}/paths 
 Content-Type: application/json
 
 {
-  "FullName": "Ahmad Jaber",
-  "Email": "ahmad.jaber@example.com",
-  "Password": "Ahmad123"
+  "Name":"Backend Developer using ASP.NET Core",
+  "Description":"This path will help you to practically learn how to be a backend developer using ASP.NET Core. It will cover all the necessary skills and technologies you need to master to become a proficient backend developer."
 }
-
 ###
-POST  https://localhost:7147/api/auth/signin 
+POST {{baseUrl}}/skills
 Content-Type: application/json
 
 {
-  
-  "Email": "ahmad.jaber@example.com",
-  "Password": "Ahmad123"
+  "PathId":1,
+  "Name":"objective-oriented programming (OOP)",
+  "Description":"practically learn the concepts of OOP and how to apply them in your projects. This skill will help you to write clean, maintainable, and scalable code."
 }
 
 ###
-GET  https://localhost:7147/api/StudentLearningObjectives
+POST {{baseUrl}}/skills
 Content-Type: application/json
-Authorization: Bearer ayJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwOi8vc2NoZW1hcy54bWxzb2FwLm9yZy93cy8yMDA1LzA1L2lkZW50aXR5L2NsYWltcy9uYW1laWRlbnRpZmllciI6ImQ1NDZhYjAwLTAyNGQtNDJiNC04MzdjLTlkNDJkYTRmYTI4MSIsImh0dHA6Ly9zY2hlbWFzLnhtbHNvYXAub3JnL3dzLzIwMDUvMDUvaWRlbnRpdHkvY2xhaW1zL25hbWUiOiJBaG1hZCBKYWJlciIsImh0dHA6Ly9zY2hlbWFzLnhtbHNvYXAub3JnL3dzLzIwMDUvMDUvaWRlbnRpdHkvY2xhaW1zL2VtYWlsYWRkcmVzcyI6ImFobWFkLmphYmVyQGV4YW1wbGUuY29tIiwiZXhwIjoxNzc2NTA5NzA5LCJpc3MiOiJNeVN0ZXAuQXBpIiwiYXVkIjoiTXlTdGVwLkNsaWVudCJ9.rpFcxGm2cr4cVeSp_Z7TRWQzXmOXSPguXOFBTMY7h3Y
 
+{
+  "PathId":1,
+  "Name":"LINQ & Advanced C# Concepts",
+  "Description":"practically learn the concepts of LINQ and advanced C# features. This skill will help you to write efficient and maintainable code."
+}
+
+###
+POST {{baseUrl}}/skills
+Content-Type: application/json
+
+{
+  "PathId":1,
+  "Name":"ASP.NET Core Logics",
+  "Description":"practically learn the concepts of ASP.NET Core and how to apply them in your projects. It is the main skill in this path and it will help you to build robust and scalable web applications using ASP.NET Core."
+}
+
+###
+POST {{baseUrl}}/skills
+Content-Type: application/json
+
+{
+  "PathId":1,
+  "Name":"EF Core",
+  "Description":"practically learn the concepts of EF Core and how to apply them in your projects. This skill will help you to work with databases in your ASP.NET Core applications and perform CRUD operations efficiently."
+}
 
 
 ###
-GET  https://localhost:7147/api/Students/d546ab00-024d-42b4-837c-9d42da4fa281
+POST {{baseUrl}}/skills
 Content-Type: application/json
+
+{
+  "PathId":1,
+  "Name":"Design Patterns & SOLID",
+  "Description":"practically learn the concepts of Design Patterns and SOLID principles and how to apply them in your projects. This skill will help you to write clean, maintainable, and scalable code."
+}
+
+###
+
+### Skill 1 — C# Basics
+POST {{baseUrl}}/learningObjectives
+Content-Type: application/json
+
+{ "skillId": 1, "description": "Declare and initialize variables of different primitive types (int, string, bool, double)." }
+
+###
+POST {{baseUrl}}/learningObjectives
+Content-Type: application/json
+
+{ "skillId": 1, "description": "Perform type conversions between compatible types." }
+
+###
+POST {{baseUrl}}/learningObjectives
+Content-Type: application/json
+
+{ "skillId": 1, "description": "Use arithmetic operators (+, -, *, /, %) to perform calculations." }
+
+###
+POST {{baseUrl}}/learningObjectives
+Content-Type: application/json
+
+{ "skillId": 1, "description": "Use relational operators (>, <, ==, !=, >=, <=) to compare values." }
+
+###
+POST {{baseUrl}}/learningObjectives
+Content-Type: application/json
+
+{ "skillId": 1, "description": "Use logical operators (&&, ||, !) to combine boolean expressions." }
+
+###
+POST {{baseUrl}}/learningObjectives
+Content-Type: application/json
+
+{ "skillId": 1, "description": "Use assignment operators (=, +=, -=, *=, /=, %=) to modify variables." }
+
+###
+POST {{baseUrl}}/learningObjectives
+Content-Type: application/json
+
+{ "skillId": 1, "description": "Implement conditional statements (if, else if, else) to control program flow." }
+
+###
+POST {{baseUrl}}/learningObjectives
+Content-Type: application/json
+
+{ "skillId": 1, "description": "Implement switch statements to handle multiple conditional cases." }
+
+###
+POST {{baseUrl}}/learningObjectives
+Content-Type: application/json
+
+{ "skillId": 1, "description": "Implement loops: for, while, and foreach to iterate over collections." }
+
+###
+POST {{baseUrl}}/learningObjectives
+Content-Type: application/json
+
+{ "skillId": 1, "description": "Define methods with parameters and return types." }
+
+###
+POST {{baseUrl}}/learningObjectives
+Content-Type: application/json
+
+{ "skillId": 1, "description": "Call methods correctly and understand method scope." }
+
+###
+POST {{baseUrl}}/learningObjectives
+Content-Type: application/json
+
+{ "skillId": 1, "description": "Apply method overloading to define multiple versions of a method." }
+
+###
+POST {{baseUrl}}/learningObjectives
+Content-Type: application/json
+
+{ "skillId": 1, "description": "Handle exceptions using try/catch/finally blocks." }
+
+###
+POST {{baseUrl}}/learningObjectives
+Content-Type: application/json
+
+{ "skillId": 1, "description": "Create and throw custom exceptions." }
+
+###
+POST {{baseUrl}}/learningObjectives
+Content-Type: application/json
+
+{ "skillId": 1, "description": "Ensure proper resource cleanup in exception handling scenarios." }
+
+###
+GET {{baseUrl}}/learningObjectives/by-skill/1
+
+###
+### Skill 2 — OOP
+POST {{baseUrl}}/learningObjectives
+Content-Type: application/json
+
+{ "skillId": 2, "description": "Define classes with fields, properties, and methods." }
+
+###
+POST {{baseUrl}}/learningObjectives
+Content-Type: application/json
+
+{ "skillId": 2, "description": "Create objects and access their members." }
+
+###
+POST {{baseUrl}}/learningObjectives
+Content-Type: application/json
+
+{ "skillId": 2, "description": "Distinguish between instance and static members." }
+
+###
+POST {{baseUrl}}/learningObjectives
+Content-Type: application/json
+
+{ "skillId": 2, "description": "Apply encapsulation using access modifiers (private, public, protected, internal)." }
+
+###
+POST {{baseUrl}}/learningObjectives
+Content-Type: application/json
+
+{ "skillId": 2, "description": "Implement inheritance to create derived classes." }
+
+###
+POST {{baseUrl}}/learningObjectives
+Content-Type: application/json
+
+{ "skillId": 2, "description": "Override methods in derived classes to enable polymorphic behavior." }
+
+###
+POST {{baseUrl}}/learningObjectives
+Content-Type: application/json
+
+{ "skillId": 2, "description": "Define and implement interfaces." }
+
+###
+POST {{baseUrl}}/learningObjectives
+Content-Type: application/json
+
+{ "skillId": 2, "description": "Define and implement abstract classes." }
+
+###
+POST {{baseUrl}}/learningObjectives
+Content-Type: application/json
+
+{ "skillId": 2, "description": "Apply composition to combine classes." }
+
+###
+POST {{baseUrl}}/learningObjectives
+Content-Type: application/json
+
+{ "skillId": 2, "description": "Distinguish between composition and inheritance, and apply each appropriately." }
+
+###
+GET {{baseUrl}}/learningObjectives/by-skill/2
+
+
+### Skill 3 — LINQ & Advanced C#
+POST {{baseUrl}}/learningObjectives
+Content-Type: application/json
+
+{ "skillId": 3, "description": "Write LINQ queries using Select to project data from collections." }
+
+###
+POST {{baseUrl}}/learningObjectives
+Content-Type: application/json
+
+{ "skillId": 3, "description": "Write LINQ queries using Where to filter collections based on conditions." }
+
+###
+POST {{baseUrl}}/learningObjectives
+Content-Type: application/json
+
+{ "skillId": 3, "description": "Use GroupBy in LINQ to group collection elements by a key." }
+
+###
+POST {{baseUrl}}/learningObjectives
+Content-Type: application/json
+
+{ "skillId": 3, "description": "Use Join in LINQ to combine multiple collections." }
+
+###
+POST {{baseUrl}}/learningObjectives
+Content-Type: application/json
+
+{ "skillId": 3, "description": "Define delegates and invoke them to reference methods dynamically." }
+
+###
+POST {{baseUrl}}/learningObjectives
+Content-Type: application/json
+
+{ "skillId": 3, "description": "Implement events using delegates for asynchronous notifications." }
+
+###
+POST {{baseUrl}}/learningObjectives
+Content-Type: application/json
+
+{ "skillId": 3, "description": "Create generic classes to work with type parameters." }
+
+###
+POST {{baseUrl}}/learningObjectives
+Content-Type: application/json
+
+{ "skillId": 3, "description": "Create generic methods to handle multiple types safely." }
+
+###
+POST {{baseUrl}}/learningObjectives
+Content-Type: application/json
+
+{ "skillId": 3, "description": "Implement asynchronous methods using async/await." }
+
+###
+POST {{baseUrl}}/learningObjectives
+Content-Type: application/json
+
+{ "skillId": 3, "description": "Use Task and the Task Parallel Library for basic parallel operations." }
+
+###
+POST {{baseUrl}}/learningObjectives
+Content-Type: application/json
+
+{ "skillId": 3, "description": "Apply advanced exception handling techniques, including multiple catch blocks." }
+
+###
+POST {{baseUrl}}/learningObjectives
+Content-Type: application/json
+
+{ "skillId": 3, "description": "Create and throw custom exceptions in advanced scenarios." }
+
+
+### Skill 4 — ASP.NET Core
+POST {{baseUrl}}/learningObjectives
+Content-Type: application/json
+
+{ "skillId": 4, "description": "Understand the project structure of an ASP.NET Core application." }
+
+###
+POST {{baseUrl}}/learningObjectives
+Content-Type: application/json
+
+{ "skillId": 4, "description": "Configure services in Startup.cs/Program.cs." }
+
+###
+POST {{baseUrl}}/learningObjectives
+Content-Type: application/json
+
+{ "skillId": 4, "description": "Register and inject services using dependency injection (Scoped, Transient, Singleton)." }
+
+###
+POST {{baseUrl}}/learningObjectives
+Content-Type: application/json
+
+{ "skillId": 4, "description": "Define routes using conventional routing." }
+
+###
+POST {{baseUrl}}/learningObjectives
+Content-Type: application/json
+
+{ "skillId": 4, "description": "Define routes using attribute routing." }
+
+###
+POST {{baseUrl}}/learningObjectives
+Content-Type: application/json
+
+{ "skillId": 4, "description": "Implement controllers and action methods." }
+
+###
+POST {{baseUrl}}/learningObjectives
+Content-Type: application/json
+
+{ "skillId": 4, "description": "Return appropriate IActionResult types from action methods." }
+
+###
+POST {{baseUrl}}/learningObjectives
+Content-Type: application/json
+
+{ "skillId": 4, "description": "Bind HTTP request data to models." }
+
+###
+POST {{baseUrl}}/learningObjectives
+Content-Type: application/json
+
+{ "skillId": 4, "description": "Validate models using data annotations." }
+
+###
+POST {{baseUrl}}/learningObjectives
+Content-Type: application/json
+
+{ "skillId": 4, "description": "Implement custom model validation logic." }
+
+###
+POST {{baseUrl}}/learningObjectives
+Content-Type: application/json
+
+{ "skillId": 4, "description": "Write custom middleware." }
+
+###
+POST {{baseUrl}}/learningObjectives
+Content-Type: application/json
+
+{ "skillId": 4, "description": "Manage the request/response pipeline using Use, Run, and Map." }
+
+###
+POST {{baseUrl}}/learningObjectives
+Content-Type: application/json
+
+{ "skillId": 4, "description": "Access and modify HTTP requests using HttpContext." }
+
+###
+POST {{baseUrl}}/learningObjectives
+Content-Type: application/json
+
+{ "skillId": 4, "description": "Access and modify HTTP responses using HttpContext (headers, status codes)." }
+
+###
+POST {{baseUrl}}/learningObjectives
+Content-Type: application/json
+
+{ "skillId": 4, "description": "Implement action filters for cross-cutting concerns." }
+
+###
+POST {{baseUrl}}/learningObjectives
+Content-Type: application/json
+
+{ "skillId": 4, "description": "Understand the execution order of middleware and action filters." }
+
+###
+POST {{baseUrl}}/learningObjectives
+Content-Type: application/json
+
+{ "skillId": 4, "description": "Implement logging within controllers and middleware." }
+
+###
+POST {{baseUrl}}/learningObjectives
+Content-Type: application/json
+
+{ "skillId": 4, "description": "Implement centralized exception handling." }
+
+
+### Skill 5 — EF Core
+POST {{baseUrl}}/learningObjectives
+Content-Type: application/json
+
+{ "skillId": 5, "description": "Define entity classes (Models) with properties." }
+
+###
+POST {{baseUrl}}/learningObjectives
+Content-Type: application/json
+
+{ "skillId": 5, "description": "Define relationships between entities using navigation properties." }
+
+###
+POST {{baseUrl}}/learningObjectives
+Content-Type: application/json
+
+{ "skillId": 5, "description": "Create a DbContext class to represent the database context." }
+
+###
+POST {{baseUrl}}/learningObjectives
+Content-Type: application/json
+
+{ "skillId": 5, "description": "Define DbSet properties in the DbContext for each entity." }
+
+###
+POST {{baseUrl}}/learningObjectives
+Content-Type: application/json
+
+{ "skillId": 5, "description": "Configure the DbContext in Startup.cs and register it for dependency injection." }
+
+###
+POST {{baseUrl}}/learningObjectives
+Content-Type: application/json
+
+{ "skillId": 5, "description": "Write LINQ queries on DbSet objects to filter data." }
+
+###
+POST {{baseUrl}}/learningObjectives
+Content-Type: application/json
+
+{ "skillId": 5, "description": "Write LINQ queries on DbSet objects to sort data." }
+
+###
+POST {{baseUrl}}/learningObjectives
+Content-Type: application/json
+
+{ "skillId": 5, "description": "Write LINQ queries on DbSet objects to project data." }
+
+###
+POST {{baseUrl}}/learningObjectives
+Content-Type: application/json
+
+{ "skillId": 5, "description": "Write LINQ queries on DbSet objects to join collections." }
+
+###
+POST {{baseUrl}}/learningObjectives
+Content-Type: application/json
+
+{ "skillId": 5, "description": "Apply data annotations to configure entity properties (keys, constraints, relationships)." }
+
+###
+POST {{baseUrl}}/learningObjectives
+Content-Type: application/json
+
+{ "skillId": 5, "description": "Use Fluent API to configure entity behavior, keys, and relationships." }
+
+
+### Skill 6 — Design Patterns & SOLID
+POST {{baseUrl}}/learningObjectives
+Content-Type: application/json
+
+{ "skillId": 6, "description": "Apply the Single Responsibility Principle to design classes with one responsibility." }
+
+###
+POST {{baseUrl}}/learningObjectives
+Content-Type: application/json
+
+{ "skillId": 6, "description": "Apply the Open/Closed Principle to make classes extendable without modifying existing code." }
+
+###
+POST {{baseUrl}}/learningObjectives
+Content-Type: application/json
+
+{ "skillId": 6, "description": "Apply the Liskov Substitution Principle to ensure derived classes can replace base classes." }
+
+###
+POST {{baseUrl}}/learningObjectives
+Content-Type: application/json
+
+{ "skillId": 6, "description": "Apply the Interface Segregation Principle to create focused, minimal interfaces." }
+
+###
+POST {{baseUrl}}/learningObjectives
+Content-Type: application/json
+
+{ "skillId": 6, "description": "Apply the Dependency Inversion Principle to depend on abstractions rather than concrete implementations." }
+
+###
+POST {{baseUrl}}/learningObjectives
+Content-Type: application/json
+
+{ "skillId": 6, "description": "Implement the Repository Pattern to abstract data access logic and provide a consistent interface." }
+
+###
+POST {{baseUrl}}/learningObjectives
+Content-Type: application/json
+
+{ "skillId": 6, "description": "Implement the Singleton Pattern to ensure a single instance of a class with thread safety." }
+
+###
+POST {{baseUrl}}/learningObjectives
+Content-Type: application/json
+
+{ "skillId": 6, "description": "Implement the Factory Pattern to create objects without exposing instantiation logic." }
+
+###
+POST {{baseUrl}}/learningObjectives
+Content-Type: application/json
+
+{ "skillId": 6, "description": "Implement the Strategy Pattern to define interchangeable algorithms and switch behavior dynamically." }

@@ -8,6 +8,7 @@ using Repository;
 using Services;
 using Services.Common;
 using Services.Interfaces;
+using Microsoft.Extensions.Options;
 
 namespace MyStep;
 
@@ -17,7 +18,7 @@ public class Program
     {
         var builder = WebApplication.CreateBuilder(args);
         
-
+        builder.WebHost.UseUrls("http://0.0.0.0:5000");
         // Add services to the container.
         builder.Services.AddControllers();
         builder.Services.AddHttpClient();
@@ -56,8 +57,12 @@ public class Program
         builder.Services.AddScoped<ITaskItemService, TaskItemService>();
         builder.Services.AddScoped<ITaskPrerequisiteService, TaskPrerequisiteService>();
         builder.Services.AddScoped<ITaskTargetService, TaskTargetService>();
+        builder.Services.AddScoped<ITaskSearchVectorService, TaskSearchVectorService>();
         builder.Services.AddScoped<IStudentService, StudentService>();
         builder.Services.AddScoped<IStudentLearningObjectiveService, StudentLearningObjectiveService>();
+
+        builder.Services.Configure<EmbeddingOptions>(builder.Configuration.GetSection("Embedding"));
+        builder.Services.AddHttpClient<IEmbeddingClient, HuggingFaceEmbeddingClient>();
 
         // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
         builder.Services.AddOpenApi();

@@ -12,12 +12,18 @@ public class TaskItemService : ITaskItemService
     private readonly ITaskItemRepo _taskItemRepo;
     private readonly IPathItemRepo _pathItemRepo;
     private readonly ISkillRepo _skillRepo;
+    private readonly ITaskSearchVectorService _taskSearchVectorService;
 
-    public TaskItemService(ITaskItemRepo taskItemRepo, IPathItemRepo pathItemRepo, ISkillRepo skillRepo)
+    public TaskItemService(
+        ITaskItemRepo taskItemRepo,
+        IPathItemRepo pathItemRepo,
+        ISkillRepo skillRepo,
+        ITaskSearchVectorService taskSearchVectorService)
     {
         _taskItemRepo = taskItemRepo;
         _pathItemRepo = pathItemRepo;
         _skillRepo = skillRepo;
+        _taskSearchVectorService = taskSearchVectorService;
     }
 
     public async Task<Result<List<TaskItemResponseDto>>> GetAllAsync()
@@ -83,7 +89,7 @@ public class TaskItemService : ITaskItemService
             return Result<TaskItemResponseDto>.Failure("Task payload is required.");
         }
 
-        var validationError = await ValidateTaskPayloadAsync(dto.PathId, dto.MainSkillId, dto.TaskData, dto.SearchVector);
+        var validationError = await ValidateTaskPayloadAsync(dto.PathId, dto.MainSkillId, dto.TaskData);
         if (validationError is not null)
         {
             return Result<TaskItemResponseDto>.Failure(validationError);
@@ -95,7 +101,9 @@ public class TaskItemService : ITaskItemService
             PathId = dto.PathId,
             MainSkillId = dto.MainSkillId,
             TaskData = dto.TaskData!,
-            SearchVector = new Vector(dto.SearchVector!)
+            SearchVector = dto.SearchVector is { Length: > 0 }
+                ? new Vector(dto.SearchVector)
+                : new Vector(new float[4096])
         };
 
         await _taskItemRepo.AddAsync(entity);
@@ -120,16 +128,32 @@ public class TaskItemService : ITaskItemService
             return Result<TaskItemResponseDto>.Failure($"Task with id {id} was not found.");
         }
 
-        var validationError = await ValidateTaskPayloadAsync(dto.PathId, dto.MainSkillId, dto.TaskData, dto.SearchVector);
+        var validationError = await ValidateTaskPayloadAsync(dto.PathId, dto.MainSkillId, dto.TaskData);
         if (validationError is not null)
         {
             return Result<TaskItemResponseDto>.Failure(validationError);
         }
 
+        var updatedPreview = new TaskItem
+        {
+            Id = existingTask.Id,
+            PathId = dto.PathId,
+            MainSkillId = dto.MainSkillId,
+            TaskData = dto.TaskData!,
+            Targets = existingTask.Targets,
+            Prerequisites = existingTask.Prerequisites
+        };
+
+        var vectorResult = await _taskSearchVectorService.BuildVectorAsync(updatedPreview);
+        if (!vectorResult.IsSuccess)
+        {
+            return Result<TaskItemResponseDto>.Failure(vectorResult.ErrorMessage!);
+        }
+
         existingTask.PathId = dto.PathId;
         existingTask.MainSkillId = dto.MainSkillId;
         existingTask.TaskData = dto.TaskData!;
-        existingTask.SearchVector = new Vector(dto.SearchVector!);
+        existingTask.SearchVector = new Vector(vectorResult.Data!);
 
         await _taskItemRepo.UpdateAsync(existingTask);
         return Result<TaskItemResponseDto>.Success(MapToResponse(existingTask));
@@ -152,7 +176,7 @@ public class TaskItemService : ITaskItemService
         return Result<bool>.Success(true);
     }
 
-    private async Task<string?> ValidateTaskPayloadAsync(int pathId, int mainSkillId, JsonDocument? taskData, float[]? searchVector)
+    private async Task<string?> ValidateTaskPayloadAsync(int pathId, int mainSkillId, JsonDocument? taskData)
     {
         if (pathId <= 0)
         {
@@ -180,16 +204,6 @@ public class TaskItemService : ITaskItemService
         {
             return "Task data is required.";
         }
-
-        if (searchVector is null || searchVector.Length == 0)
-        {
-            return "Task search vector is required.";
-        }
-
-        //if (searchVector.Length != 4096)
-        //{
-          //  return "Task search vector must contain exactly 4096 values.";
-        //}
 
         return null;
     }

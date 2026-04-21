@@ -152,7 +152,7 @@ namespace Repository.Migrations
                     b.Property<int>("StreakCount")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("integer")
-                        .HasDefaultValue(0);
+                        .HasDefaultValue(1);
 
                     b.HasKey("StudentId", "LearningObjectiveId");
 
