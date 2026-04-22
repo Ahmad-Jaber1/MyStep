@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Models;
+using Pgvector;
 using Repository;
 
 public class TaskItemRepo : ITaskItemRepo
@@ -48,6 +49,25 @@ public class TaskItemRepo : ITaskItemRepo
     {
         return await _context.Tasks
             .Where(t => t.MainSkillId == mainSkillId)
+            .ToListAsync();
+    }
+
+    public async Task<List<TaskItem>> GetMostSimilarByVectorAsync(int mainSkillId, Vector queryVector, int topK)
+    {
+        if (mainSkillId <= 0 || topK <= 0)
+        {
+            return [];
+        }
+
+        return await _context.Tasks
+            .FromSqlInterpolated($@"
+                SELECT *
+                FROM tasks
+                WHERE ""MainSkillId"" = {mainSkillId}
+                  AND ""SearchVector"" IS NOT NULL
+                ORDER BY ""SearchVector"" <=> {queryVector}
+                LIMIT {topK}")
+            .AsNoTracking()
             .ToListAsync();
     }
 

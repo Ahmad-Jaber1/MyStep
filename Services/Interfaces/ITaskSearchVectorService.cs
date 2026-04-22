@@ -8,4 +8,5 @@ public interface ITaskSearchVectorService
 {
     Task<Result<float[]>> BuildVectorAsync(TaskItem task);
     Task<Result<TaskSearchVectorRebuildResponseDto>> RebuildAllAsync();
+    Task<Result<TaskGenerationPreparationResponseDto>> PrepareTaskGenerationAsync(Guid studentId, int mainSkillId);
 }

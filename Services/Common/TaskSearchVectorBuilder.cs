@@ -9,6 +9,7 @@ public static class TaskSearchVectorBuilder
         var prerequisiteDescriptions = task.Prerequisites
             .Select(prerequisite => GetObjectiveDescription(prerequisite.LearningObjectiveId, learningObjectives))
             .Where(description => !string.IsNullOrWhiteSpace(description))
+            .Cast<string>()
             .Distinct(StringComparer.Ordinal)
             .OrderBy(description => description, StringComparer.Ordinal)
             .ToList();
@@ -16,17 +17,37 @@ public static class TaskSearchVectorBuilder
         var targetDescriptions = task.Targets
             .Select(target => GetObjectiveDescription(target.LearningObjectiveId, learningObjectives))
             .Where(description => !string.IsNullOrWhiteSpace(description))
+            .Cast<string>()
             .Distinct(StringComparer.Ordinal)
             .OrderBy(description => description, StringComparer.Ordinal)
             .ToList();
 
-        var prerequisiteText = prerequisiteDescriptions.Count == 0
-            ? "none"
-            : string.Join(", ", prerequisiteDescriptions);
+        return BuildInputText(prerequisiteDescriptions, targetDescriptions);
+    }
 
-        var targetText = targetDescriptions.Count == 0
+    public static string BuildInputText(IEnumerable<string> prerequisiteDescriptions, IEnumerable<string> targetDescriptions)
+    {
+        var normalizedPrerequisites = prerequisiteDescriptions
+            .Where(description => !string.IsNullOrWhiteSpace(description))
+            .Select(description => description.Trim())
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(description => description, StringComparer.Ordinal)
+            .ToList();
+
+        var normalizedTargets = targetDescriptions
+            .Where(description => !string.IsNullOrWhiteSpace(description))
+            .Select(description => description.Trim())
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(description => description, StringComparer.Ordinal)
+            .ToList();
+
+        var prerequisiteText = normalizedPrerequisites.Count == 0
             ? "none"
-            : string.Join(", ", targetDescriptions);
+            : string.Join(", ", normalizedPrerequisites);
+
+        var targetText = normalizedTargets.Count == 0
+            ? "none"
+            : string.Join(", ", normalizedTargets);
 
         return $"This task requires the following prerequisite learning objectives: {prerequisiteText}.\n" +
                $"This task will help the learner achieve the following target learning objectives: {targetText}.";

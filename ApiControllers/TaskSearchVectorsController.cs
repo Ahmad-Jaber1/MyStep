@@ -1,11 +1,12 @@
 using Microsoft.AspNetCore.Mvc;
+using Services.DTOs;
 using Services.Interfaces;
 using Shared.Results;
 
 namespace ApiControllers;
 
 [ApiController]
-[Route("api/task-search-vectors")]
+[Route("api/task-generation")]
 public class TaskSearchVectorsController : ControllerBase
 {
     private readonly ITaskSearchVectorService _taskSearchVectorService;
@@ -19,6 +20,13 @@ public class TaskSearchVectorsController : ControllerBase
     public async Task<IActionResult> RebuildAll()
     {
         var result = await _taskSearchVectorService.RebuildAllAsync();
+        return ToActionResult(result);
+    }
+
+    [HttpPost("prepare")]
+    public async Task<IActionResult> PrepareTaskGeneration([FromBody] PrepareTaskGenerationRequestDto dto)
+    {
+        var result = await _taskSearchVectorService.PrepareTaskGenerationAsync(dto.StudentId, dto.MainSkillId);
         return ToActionResult(result);
     }
 
