@@ -1,3 +1,0 @@
-/home/ahmad-jaber/Documents/GraduateProject/MyStep/publish/Shared.dll
-/home/ahmad-jaber/Documents/GraduateProject/MyStep/publish/Shared.deps.json
-/home/ahmad-jaber/Documents/GraduateProject/MyStep/publish/Shared.pdb
