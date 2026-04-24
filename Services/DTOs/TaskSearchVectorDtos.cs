@@ -31,9 +31,17 @@ public class TaskGenerationPreparationResponseDto
 
     public int MainSkillId { get; set; }
 
+    public string MainSkillName { get; set; } = null!;
+
+    public int PathId { get; set; }
+
+    public string PathName { get; set; } = null!;
+
     public double MasteryThreshold { get; set; }
 
     public string InputText { get; set; } = null!;
+
+    public string GenerationPrompt { get; set; } = null!;
 
     public float[] QueryVector { get; set; } = [];
 
