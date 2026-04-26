@@ -20,6 +20,7 @@ public class TaskSearchVectorService : ITaskSearchVectorService
     private readonly IStudentLearningObjectiveRepo _studentLearningObjectiveRepo;
     private readonly ISkillRepo _skillRepo;
     private readonly IEmbeddingClient _embeddingClient;
+    private readonly IGenerationClient _generationClient;
     private readonly ITaskTargetRepo _taskTargetRepo;
     private readonly ITaskPrerequisiteRepo _taskPrerequisiteRepo;
 
@@ -32,6 +33,7 @@ public class TaskSearchVectorService : ITaskSearchVectorService
         IStudentLearningObjectiveRepo studentLearningObjectiveRepo,
         ISkillRepo skillRepo,
         IEmbeddingClient embeddingClient,
+        IGenerationClient generationClient,
         ITaskTargetRepo taskTargetRepo,
         ITaskPrerequisiteRepo taskPrerequisiteRepo)
     {
@@ -40,6 +42,7 @@ public class TaskSearchVectorService : ITaskSearchVectorService
         _studentLearningObjectiveRepo = studentLearningObjectiveRepo;
         _skillRepo = skillRepo;
         _embeddingClient = embeddingClient;
+        _generationClient = generationClient;
         _taskTargetRepo = taskTargetRepo;
         _taskPrerequisiteRepo = taskPrerequisiteRepo;
     }
@@ -207,6 +210,28 @@ public class TaskSearchVectorService : ITaskSearchVectorService
         });
     }
 
+    public async Task<Result<JsonDocument>> GenerateTaskAsync(Guid studentId, int mainSkillId)
+    {
+        var preparationResult = await PrepareTaskGenerationAsync(studentId, mainSkillId);
+        if (!preparationResult.IsSuccess || preparationResult.Data is null)
+        {
+            return Result<JsonDocument>.Failure(preparationResult.ErrorMessage ?? "Task generation preparation failed.");
+        }
+
+        var generationResult = await _generationClient.GenerateContentAsync(preparationResult.Data.GenerationPrompt);
+        if (!generationResult.IsSuccess)
+        {
+            return Result<JsonDocument>.Failure(generationResult.ErrorMessage ?? "Task generation failed.");
+        }
+
+        if (!TryParseGeneratedTask(generationResult.Data!, out var generatedTask, out var parseError))
+        {
+            return Result<JsonDocument>.Failure(parseError);
+        }
+
+        return Result<JsonDocument>.Success(generatedTask);
+    }
+
     private static string BuildGenerationPrompt(
         Skill mainSkill,
         IReadOnlyCollection<Skill> pathSkills,
@@ -262,6 +287,10 @@ public class TaskSearchVectorService : ITaskSearchVectorService
         builder.AppendLine();
         builder.AppendLine("PREREQUISITE LEARNING OBJECTIVES FOR THIS STUDENT");
         builder.AppendLine("These are objectives the student already understands well and can rely on while solving this task.");
+        builder.AppendLine("Important: if this task needs any prerequisite support, you must use only the objectives in this list.");
+        builder.AppendLine("Do not invent, assume, or use any prerequisite objective outside this list.");
+        builder.AppendLine("Assume the student knows only what is explicitly present in this prerequisite list.");
+        builder.AppendLine("Do not assume hidden or unstated prior knowledge.");
         builder.AppendLine("They are necessary supporting objectives from other skills in the same path.");
         if (prerequisiteDetails.Count == 0)
         {
@@ -299,6 +328,11 @@ public class TaskSearchVectorService : ITaskSearchVectorService
         builder.AppendLine("- Never place too many objectives in one task; keep the task focused and realistic.");
 
         builder.AppendLine();
+        builder.AppendLine("IMPORTANT ABOUT EXAMPLES");
+        builder.AppendLine("Similar tasks may include target objectives or prerequisite objectives that are NOT valid for this student.");
+        builder.AppendLine("Treat examples as style/depth reference only.");
+        builder.AppendLine("For this generated task, use only objectives from TARGET LEARNING OBJECTIVES and only prerequisites from PREREQUISITE LEARNING OBJECTIVES.");
+        builder.AppendLine();
         builder.AppendLine("SIMILAR TASKS EXAMPLES");
         builder.AppendLine("Use these tasks as reference examples for style and depth. Do not copy them.");
         var orderedTasks = similarTasks
@@ -331,15 +365,20 @@ public class TaskSearchVectorService : ITaskSearchVectorService
         builder.AppendLine("7) For each additional_skills_required item, add skill_id, skill_name, used_learning_goal, and justification.");
         builder.AppendLine("8) used_learning_goal must be a numeric objective ID only.");
         builder.AppendLine("9) validation_criteria is critical and must include one or more checks for each targeted objective.");
-        builder.AppendLine("10) validation_criteria must also include checks for each additional objective actually used in additional_skills_required.");
-        builder.AppendLine("11) validation_criteria must include business-logic correctness checks for scenario requirements.");
-        builder.AppendLine("12) For business-logic validations not tied to one learning objective, set both skill_id and related_learning_objective to 0.");
-        builder.AppendLine("13) Every validation entry must include skill_id and related_learning_objective fields.");
-        builder.AppendLine("14) Keep validations atomic, objective, and technically verifiable from implementation behavior.");
-        builder.AppendLine("15) instructions must guide student step by step without revealing full solution code.");
-        builder.AppendLine("16) hints must be progressive from general to specific, still without giving final code.");
-        builder.AppendLine("17) Keep output language clear and professional.");
-        builder.AppendLine("18) Output MUST be JSON only.");
+        builder.AppendLine("10) Every targeted objective must have one or more validation points.");
+        builder.AppendLine("11) Every prerequisite objective actually used in the generated task must have one or more validation points.");
+        builder.AppendLine("12) validation_criteria must also include business-logic correctness checks for scenario requirements.");
+        builder.AppendLine("13) For business-logic validations not tied to one learning objective, set both skill_id and related_learning_objective to 0.");
+        builder.AppendLine("14) Every validation entry must include skill_id and related_learning_objective fields.");
+        builder.AppendLine("15) Keep validations atomic, objective, and technically verifiable from implementation behavior.");
+        builder.AppendLine("16) instructions must guide student step by step without revealing full solution code.");
+        builder.AppendLine("17) hints must be progressive from general to specific, still without giving final code.");
+        builder.AppendLine("18) Keep output language clear and professional.");
+        builder.AppendLine("19) Output MUST be JSON only.");
+        builder.AppendLine("20) Similar task examples are reference-only; never copy their target or prerequisite objectives unless they are present in this student's allowed lists.");
+        builder.AppendLine("21) Build the task only on what the student is known to understand from PREREQUISITE LEARNING OBJECTIVES plus the chosen TARGET LEARNING OBJECTIVES.");
+        builder.AppendLine("22) If the task requires prerequisite knowledge, include EVERY required prerequisite objective in additional_skills_required (from the allowed prerequisite list only).");
+        builder.AppendLine("23) Never design a task that depends on unstated prerequisite knowledge.");
         builder.AppendLine();
 
         builder.AppendLine("STRICT VALIDATION RULES (MANDATORY)");
@@ -351,9 +390,12 @@ public class TaskSearchVectorService : ITaskSearchVectorService
         builder.AppendLine("- additional_skills_required MUST include only objectives from PREREQUISITE LEARNING OBJECTIVES.");
         builder.AppendLine("  - Using any objective outside this list is forbidden.");
         builder.AppendLine("  - If none are needed, return an empty array.");
+        builder.AppendLine("- Do not copy objective IDs from SIMILAR TASKS EXAMPLES unless those IDs also exist in this student's TARGET LEARNING OBJECTIVES or PREREQUISITE LEARNING OBJECTIVES.");
+        builder.AppendLine("- Do not assume student knowledge outside PREREQUISITE LEARNING OBJECTIVES.");
+        builder.AppendLine("- If solving the task needs prerequisite objectives, ALL such required objectives must appear in additional_skills_required.");
         builder.AppendLine("- validation_criteria MUST:");
-        builder.AppendLine("  - Include at least one criterion for EACH targeted_objective.");
-        builder.AppendLine("  - Include at least one criterion for EACH objective used in additional_skills_required.");
+        builder.AppendLine("  - Include one or more criteria for EACH targeted_objective.");
+        builder.AppendLine("  - Include one or more criteria for EACH objective used in additional_skills_required.");
         builder.AppendLine("  - Not reference any objective outside targeted_objectives or additional_skills_required.");
         builder.AppendLine("- skill_name values MUST exactly match provided skill names (case-sensitive, no rewording).");
         builder.AppendLine("- All validation criteria MUST be atomic, testable, and aligned with implementation behavior.");
@@ -570,6 +612,29 @@ public class TaskSearchVectorService : ITaskSearchVectorService
         {
             // If enrichment fails, keep the original task data
             // Log error if logging is available
+        }
+    }
+
+    private static bool TryParseGeneratedTask(string content, out JsonDocument generatedTask, out string errorMessage)
+    {
+        generatedTask = null!;
+        errorMessage = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(content))
+        {
+            errorMessage = "Generation API returned an empty task payload.";
+            return false;
+        }
+
+        try
+        {
+            generatedTask = JsonDocument.Parse(content);
+            return true;
+        }
+        catch (JsonException ex)
+        {
+            errorMessage = $"Generation API returned invalid JSON content: {ex.Message}";
+            return false;
         }
     }
 }

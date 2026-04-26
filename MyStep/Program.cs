@@ -62,7 +62,9 @@ public class Program
         builder.Services.AddScoped<IStudentLearningObjectiveService, StudentLearningObjectiveService>();
 
         builder.Services.Configure<EmbeddingOptions>(builder.Configuration.GetSection("Embedding"));
+        builder.Services.Configure<GenerationOptions>(builder.Configuration.GetSection("Generation"));
         builder.Services.AddHttpClient<IEmbeddingClient, HuggingFaceEmbeddingClient>();
+        builder.Services.AddHttpClient<IGenerationClient, DashScopeGenerationClient>();
 
         // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
         builder.Services.AddOpenApi();

@@ -1,4 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
+using System.Text.Json;
 using Services.DTOs;
 using Services.Interfaces;
 using Shared.Results;
@@ -7,6 +9,7 @@ namespace ApiControllers;
 
 [ApiController]
 [Route("api/task-generation")]
+[Authorize]
 public class TaskSearchVectorsController : ControllerBase
 {
     private readonly ITaskSearchVectorService _taskSearchVectorService;
@@ -30,10 +33,22 @@ public class TaskSearchVectorsController : ControllerBase
         return ToActionResult(result);
     }
 
+    [HttpPost("generate")]
+    public async Task<IActionResult> GenerateTask([FromBody] PrepareTaskGenerationRequestDto dto)
+    {
+        var result = await _taskSearchVectorService.GenerateTaskAsync(dto.StudentId, dto.MainSkillId);
+        return ToActionResult(result);
+    }
+
     private IActionResult ToActionResult<T>(Result<T> result)
     {
         if (result.IsSuccess)
         {
+            if (result.Data is JsonDocument jsonDocument)
+            {
+                return Content(jsonDocument.RootElement.GetRawText(), "application/json");
+            }
+
             return Ok(result.Data);
         }
 

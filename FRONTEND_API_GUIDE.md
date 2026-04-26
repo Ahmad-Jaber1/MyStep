@@ -32,6 +32,83 @@ This document is for the frontend team. It only includes the APIs needed for the
 8. Frontend submits all ratings once.
 9. Backend marks welcome assessment as completed, so it will not appear again for that student.
 
+## Task Generation API
+
+This flow is protected and should be called only after the student logs in.
+The frontend only needs the generate endpoint. The prepare endpoint is an internal backend step and is not needed by the UI.
+
+### 7) Generate Task
+
+`POST /api/task-generation/generate`
+
+Use this when the frontend wants the backend to prepare the student-specific prompt and return one generated task as pure JSON.
+
+Headers:
+```http
+Authorization: Bearer <token>
+Content-Type: application/json
+```
+
+Request body:
+```json
+{
+  "studentId": "d546ab00-024d-42b4-837c-9d42da4fa281",
+  "mainSkillId": 4
+}
+```
+
+Request DTO:
+- `studentId`: guid, required
+- `mainSkillId`: integer, required
+
+Success response: pure task JSON object returned directly from the model output
+```json
+{
+  "task_name": "Request Audit Middleware with Header Injection and Attribute Routing",
+  "skill_category": "ASP.NET Core Logics",
+  "scenario": {
+    "story": "A fintech startup requires an internal auditing mechanism for their Quote Calculation API.",
+    "requirement": "Implement a single feature with middleware and an attribute-routed controller endpoint."
+  },
+  "targeted_objectives": [48, 50, 51],
+  "additional_skills_required": [
+    {
+      "skill_id": 1,
+      "skill_name": "Basic C# Programming",
+      "used_learning_goal": 1,
+      "justification": "Required to declare timestamps and generate unique identifiers."
+    }
+  ],
+  "instructions": [
+    "Start by defining the data model with annotations.",
+    "Add the middleware and register it in the pipeline."
+  ],
+  "validation_criteria": [
+    {
+      "skill_id": 4,
+      "criterion": "A custom middleware class is implemented and registered in the application pipeline.",
+      "related_learning_objective": 48
+    },
+    {
+      "skill_id": 0,
+      "criterion": "A request with invalid quote quantity returns a 400 status code.",
+      "related_learning_objective": 0
+    }
+  ],
+  "hints": [
+    "Start with the data model.",
+    "Then implement the middleware behavior."
+  ]
+}
+```
+
+Important notes:
+- The response is the pure generated task JSON only, not a wrapper object.
+- The frontend should render the returned JSON directly or transform it into the UI format it needs.
+- `validation_criteria` uses `skill_id: 0` and `related_learning_objective: 0` for business-logic checks that are not tied to a specific learning objective.
+- The model output may include objective IDs that do not belong to the current student unless the backend has already constrained them in the prompt; the backend is responsible for enforcing the allowed target and prerequisite lists.
+- If the frontend needs to regenerate a task, call the same endpoint again with the same `studentId` and `mainSkillId`.
+
 ## Auth APIs
 
 ### 1) Sign Up
