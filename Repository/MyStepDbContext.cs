@@ -23,6 +23,7 @@ namespace Repository
         public DbSet<TaskPrerequisite> TaskPrerequisites => Set<TaskPrerequisite>();
         public DbSet<Student> Students => Set<Student>();
         public DbSet<StudentLearningObjective> StudentLearningObjectives => Set<StudentLearningObjective>();
+        public DbSet<StudentTask> StudentTasks => Set<StudentTask>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

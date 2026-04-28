@@ -3,6 +3,7 @@ using Services.Common;
 using Services.DTOs;
 using Services.Interfaces;
 using Shared.Results;
+using Repository;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text;
@@ -18,33 +19,73 @@ public class TaskSearchVectorService : ITaskSearchVectorService
     private readonly ITaskItemRepo _taskItemRepo;
     private readonly ILearningObjectiveRepo _learningObjectiveRepo;
     private readonly IStudentLearningObjectiveRepo _studentLearningObjectiveRepo;
+    private readonly IStudentTaskRepo _studentTaskRepo;
+    private readonly IStudentRepo _studentRepo;
     private readonly ISkillRepo _skillRepo;
     private readonly IEmbeddingClient _embeddingClient;
     private readonly IGenerationClient _generationClient;
     private readonly ITaskTargetRepo _taskTargetRepo;
     private readonly ITaskPrerequisiteRepo _taskPrerequisiteRepo;
+    private readonly MyStepDbContext _dbContext;
 
     private sealed record PrerequisitePromptItem(int SkillId, string SkillName, int ObjectiveId, string ObjectiveDescription, double Score);
     private sealed record TargetPromptItem(int ObjectiveId, string ObjectiveDescription, double Score);
+
+    private sealed record GenerationContext(
+        TaskGenerationPreparationResponseDto Preparation,
+        List<PrerequisitePromptItem> PrerequisiteDetails,
+        List<TargetPromptItem> TargetDetails,
+        HashSet<int> AllowedPrerequisiteObjectiveIds,
+        HashSet<int> AllowedTargetObjectiveIds);
+
+    private sealed class GeneratedAdditionalSkill
+    {
+        [JsonPropertyName("skill_id")]
+        public int SkillId { get; set; }
+
+        [JsonPropertyName("skill_name")]
+        public string SkillName { get; set; } = string.Empty;
+
+        [JsonPropertyName("used_learning_goal")]
+        public int UsedLearningGoal { get; set; }
+
+        [JsonPropertyName("justification")]
+        public string Justification { get; set; } = string.Empty;
+    }
+
+    private sealed class GeneratedTaskPayload
+    {
+        [JsonPropertyName("targeted_objectives")]
+        public List<int> TargetedObjectives { get; set; } = [];
+
+        [JsonPropertyName("additional_skills_required")]
+        public List<GeneratedAdditionalSkill> AdditionalSkillsRequired { get; set; } = [];
+    }
 
     public TaskSearchVectorService(
         ITaskItemRepo taskItemRepo,
         ILearningObjectiveRepo learningObjectiveRepo,
         IStudentLearningObjectiveRepo studentLearningObjectiveRepo,
+        IStudentTaskRepo studentTaskRepo,
+        IStudentRepo studentRepo,
         ISkillRepo skillRepo,
         IEmbeddingClient embeddingClient,
         IGenerationClient generationClient,
         ITaskTargetRepo taskTargetRepo,
-        ITaskPrerequisiteRepo taskPrerequisiteRepo)
+        ITaskPrerequisiteRepo taskPrerequisiteRepo,
+        MyStepDbContext dbContext)
     {
         _taskItemRepo = taskItemRepo;
         _learningObjectiveRepo = learningObjectiveRepo;
         _studentLearningObjectiveRepo = studentLearningObjectiveRepo;
+        _studentTaskRepo = studentTaskRepo;
+        _studentRepo = studentRepo;
         _skillRepo = skillRepo;
         _embeddingClient = embeddingClient;
         _generationClient = generationClient;
         _taskTargetRepo = taskTargetRepo;
         _taskPrerequisiteRepo = taskPrerequisiteRepo;
+        _dbContext = dbContext;
     }
 
     public async Task<Result<float[]>> BuildVectorAsync(TaskItem task)
@@ -90,10 +131,61 @@ public class TaskSearchVectorService : ITaskSearchVectorService
 
     public async Task<Result<TaskGenerationPreparationResponseDto>> PrepareTaskGenerationAsync(Guid studentId, int mainSkillId)
     {
+        var contextResult = await BuildGenerationContextAsync(studentId, mainSkillId);
+        if (!contextResult.IsSuccess || contextResult.Data is null)
+        {
+            return Result<TaskGenerationPreparationResponseDto>.Failure(contextResult.ErrorMessage ?? "Task generation preparation failed.");
+        }
+
+        return Result<TaskGenerationPreparationResponseDto>.Success(contextResult.Data.Preparation);
+    }
+
+    public async Task<Result<JsonDocument>> GenerateTaskAsync(Guid studentId, int mainSkillId)
+    {
+        var contextResult = await BuildGenerationContextAsync(studentId, mainSkillId);
+        if (!contextResult.IsSuccess || contextResult.Data is null)
+        {
+            return Result<JsonDocument>.Failure(contextResult.ErrorMessage ?? "Task generation preparation failed.");
+        }
+
+        var generationResult = await _generationClient.GenerateContentAsync(contextResult.Data.Preparation.GenerationPrompt);
+        if (!generationResult.IsSuccess)
+        {
+            return Result<JsonDocument>.Failure(generationResult.ErrorMessage ?? "Task generation failed.");
+        }
+
+        if (!TryParseGeneratedTask(generationResult.Data!, out var generatedTask, out var generatedPayload, out var parseError))
+        {
+            return Result<JsonDocument>.Failure(parseError);
+        }
+
+        var persistResult = await PersistGeneratedTaskAsync(studentId, mainSkillId, contextResult.Data, generatedTask, generatedPayload!);
+        if (!persistResult.IsSuccess)
+        {
+            return Result<JsonDocument>.Failure(persistResult.ErrorMessage ?? "Failed to persist generated task.");
+        }
+
+        return Result<JsonDocument>.Success(generatedTask);
+    }
+
+    private async Task<Result<GenerationContext>> BuildGenerationContextAsync(Guid studentId, int mainSkillId)
+    {
+        var student = await _studentRepo.GetByIdAsync(studentId);
+        if (student is null)
+        {
+            return Result<GenerationContext>.Failure($"Student with ID {studentId} was not found.");
+        }
+
+        var hasUnpassedTask = await _studentTaskRepo.HasUnpassedTaskForMainSkillAsync(studentId, mainSkillId);
+        if (hasUnpassedTask)
+        {
+            return Result<GenerationContext>.Failure("There is already an unfinished task for this student in the selected main skill.");
+        }
+
         var mainSkill = await _skillRepo.GetByIdAsync(mainSkillId);
         if (mainSkill is null)
         {
-            return Result<TaskGenerationPreparationResponseDto>.Failure($"Main skill with ID {mainSkillId} was not found.");
+            return Result<GenerationContext>.Failure($"Main skill with ID {mainSkillId} was not found.");
         }
 
         var allPathSkills = await _skillRepo.GetByPathIdAsync(mainSkill.PathId);
@@ -156,12 +248,12 @@ public class TaskSearchVectorService : ITaskSearchVectorService
         var embeddingResult = await _embeddingClient.CreateEmbeddingAsync(inputText);
         if (!embeddingResult.IsSuccess)
         {
-            return Result<TaskGenerationPreparationResponseDto>.Failure(embeddingResult.ErrorMessage!);
+            return Result<GenerationContext>.Failure(embeddingResult.ErrorMessage!);
         }
 
         if (embeddingResult.Data is null || embeddingResult.Data.Length != ExpectedVectorSize)
         {
-            return Result<TaskGenerationPreparationResponseDto>.Failure($"Embedding API returned vector with {embeddingResult.Data?.Length ?? 0} values, expected {ExpectedVectorSize}.");
+            return Result<GenerationContext>.Failure($"Embedding API returned vector with {embeddingResult.Data?.Length ?? 0} values, expected {ExpectedVectorSize}.");
         }
 
         var queryVector = embeddingResult.Data;
@@ -193,7 +285,7 @@ public class TaskSearchVectorService : ITaskSearchVectorService
             targetDetails,
             taskMatches);
 
-        return Result<TaskGenerationPreparationResponseDto>.Success(new TaskGenerationPreparationResponseDto
+        var preparation = new TaskGenerationPreparationResponseDto
         {
             StudentId = studentId,
             MainSkillId = mainSkillId,
@@ -207,29 +299,14 @@ public class TaskSearchVectorService : ITaskSearchVectorService
             QueryVector = queryVector,
             GenerationPrompt = generationPrompt,
             TopTaskMatches = taskMatches
-        });
-    }
+        };
 
-    public async Task<Result<JsonDocument>> GenerateTaskAsync(Guid studentId, int mainSkillId)
-    {
-        var preparationResult = await PrepareTaskGenerationAsync(studentId, mainSkillId);
-        if (!preparationResult.IsSuccess || preparationResult.Data is null)
-        {
-            return Result<JsonDocument>.Failure(preparationResult.ErrorMessage ?? "Task generation preparation failed.");
-        }
-
-        var generationResult = await _generationClient.GenerateContentAsync(preparationResult.Data.GenerationPrompt);
-        if (!generationResult.IsSuccess)
-        {
-            return Result<JsonDocument>.Failure(generationResult.ErrorMessage ?? "Task generation failed.");
-        }
-
-        if (!TryParseGeneratedTask(generationResult.Data!, out var generatedTask, out var parseError))
-        {
-            return Result<JsonDocument>.Failure(parseError);
-        }
-
-        return Result<JsonDocument>.Success(generatedTask);
+        return Result<GenerationContext>.Success(new GenerationContext(
+            preparation,
+            prerequisiteDetails,
+            targetDetails,
+            prerequisiteDetails.Select(item => item.ObjectiveId).ToHashSet(),
+            targetDetails.Select(item => item.ObjectiveId).ToHashSet()));
     }
 
     private static string BuildGenerationPrompt(
@@ -615,9 +692,111 @@ public class TaskSearchVectorService : ITaskSearchVectorService
         }
     }
 
-    private static bool TryParseGeneratedTask(string content, out JsonDocument generatedTask, out string errorMessage)
+    private async Task<Result<bool>> PersistGeneratedTaskAsync(
+        Guid studentId,
+        int mainSkillId,
+        GenerationContext context,
+        JsonDocument generatedTask,
+        GeneratedTaskPayload payload)
+    {
+        if (payload.TargetedObjectives.Count == 0)
+        {
+            return Result<bool>.Failure("Generated task must include at least one target objective.");
+        }
+
+        var unknownTargetIds = payload.TargetedObjectives.Where(id => !context.AllowedTargetObjectiveIds.Contains(id)).Distinct().ToList();
+        if (unknownTargetIds.Count > 0)
+        {
+            return Result<bool>.Failure($"Generated task included target objectives outside the allowed list: {string.Join(", ", unknownTargetIds)}.");
+        }
+
+        var unknownPrerequisiteIds = payload.AdditionalSkillsRequired
+            .Select(item => item.UsedLearningGoal)
+            .Where(id => !context.AllowedPrerequisiteObjectiveIds.Contains(id))
+            .Distinct()
+            .ToList();
+        if (unknownPrerequisiteIds.Count > 0)
+        {
+            return Result<bool>.Failure($"Generated task included prerequisite objectives outside the allowed list: {string.Join(", ", unknownPrerequisiteIds)}.");
+        }
+
+        var taskEntity = new TaskItem
+        {
+            Id = Guid.NewGuid(),
+            PathId = context.Preparation.PathId,
+            MainSkillId = mainSkillId,
+            TaskData = generatedTask,
+            SearchVector = new Pgvector.Vector(new float[ExpectedVectorSize])
+        };
+
+        taskEntity.Targets = payload.TargetedObjectives
+            .Select(objectiveId => new TaskTarget
+            {
+                TaskId = taskEntity.Id,
+                LearningObjectiveId = objectiveId,
+                Task = taskEntity
+            })
+            .ToList();
+
+        taskEntity.Prerequisites = payload.AdditionalSkillsRequired
+            .Select(item => new TaskPrerequisite
+            {
+                TaskId = taskEntity.Id,
+                LearningObjectiveId = item.UsedLearningGoal,
+                Justification = item.Justification,
+                Task = taskEntity
+            })
+            .ToList();
+
+        var taskVectorResult = await BuildVectorAsync(taskEntity);
+        if (!taskVectorResult.IsSuccess)
+        {
+            return Result<bool>.Failure(taskVectorResult.ErrorMessage ?? "Failed to build task vector.");
+        }
+
+        taskEntity.SearchVector = new Pgvector.Vector(taskVectorResult.Data!);
+
+        var existingCount = await _studentTaskRepo.GetCountByStudentAndMainSkillAsync(studentId, mainSkillId);
+        var studentTask = new StudentTask
+        {
+            StudentId = studentId,
+            TaskId = taskEntity.Id,
+            NumberInMainSkill = existingCount + 1,
+            Passed = false,
+            StartedAt = DateTime.UtcNow
+        };
+
+        await using var transaction = await _dbContext.Database.BeginTransactionAsync();
+        try
+        {
+            await _taskItemRepo.AddAsync(taskEntity);
+
+            foreach (var target in taskEntity.Targets)
+            {
+                await _taskTargetRepo.AddAsync(target);
+            }
+
+            foreach (var prerequisite in taskEntity.Prerequisites)
+            {
+                await _taskPrerequisiteRepo.AddAsync(prerequisite);
+            }
+
+            await _studentTaskRepo.AddAsync(studentTask);
+
+            await transaction.CommitAsync();
+            return Result<bool>.Success(true);
+        }
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync();
+            return Result<bool>.Failure($"Failed to persist generated task: {ex.Message}");
+        }
+    }
+
+    private static bool TryParseGeneratedTask(string content, out JsonDocument generatedTask, out GeneratedTaskPayload? payload, out string errorMessage)
     {
         generatedTask = null!;
+        payload = null;
         errorMessage = string.Empty;
 
         if (string.IsNullOrWhiteSpace(content))
@@ -629,6 +808,17 @@ public class TaskSearchVectorService : ITaskSearchVectorService
         try
         {
             generatedTask = JsonDocument.Parse(content);
+            payload = JsonSerializer.Deserialize<GeneratedTaskPayload>(content, new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            });
+
+            if (payload is null)
+            {
+                errorMessage = "Generation API returned an empty task payload.";
+                return false;
+            }
+
             return true;
         }
         catch (JsonException ex)

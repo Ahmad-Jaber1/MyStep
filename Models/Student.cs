@@ -23,5 +23,7 @@ namespace Models
 
         public ICollection<StudentLearningObjective> StudentLearningObjectives { get; set; }
             = new List<StudentLearningObjective>();
+
+        public ICollection<StudentTask> StudentTasks { get; set; } = new List<StudentTask>();
     }
 }

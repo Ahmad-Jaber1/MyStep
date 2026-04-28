@@ -51,6 +51,7 @@ public class Program
         builder.Services.AddScoped<ITaskTargetRepo, TaskTargetRepo>();
         builder.Services.AddScoped<IStudentRepo, StudentRepo>();
         builder.Services.AddScoped<IStudentLearningObjectiveRepo, StudentLearningObjectiveRepo>();
+        builder.Services.AddScoped<IStudentTaskRepo, StudentTaskRepo>();
         builder.Services.AddScoped<IPathItemService, PathItemService>();
         builder.Services.AddScoped<ISkillService, SkillService>();
         builder.Services.AddScoped<ILearningObjectiveService, LearningObjectiveService>();
@@ -59,6 +60,7 @@ public class Program
         builder.Services.AddScoped<ITaskTargetService, TaskTargetService>();
         builder.Services.AddScoped<ITaskSearchVectorService, TaskSearchVectorService>();
         builder.Services.AddScoped<IStudentService, StudentService>();
+        builder.Services.AddScoped<IStudentTaskService, StudentTaskService>();
         builder.Services.AddScoped<IStudentLearningObjectiveService, StudentLearningObjectiveService>();
 
         builder.Services.Configure<EmbeddingOptions>(builder.Configuration.GetSection("Embedding"));
