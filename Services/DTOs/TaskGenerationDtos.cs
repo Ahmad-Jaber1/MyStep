@@ -10,3 +10,10 @@ public class TaskGenerationResponseDto
 
     public JsonDocument GeneratedTask { get; set; } = null!;
 }
+
+public class GenerateTaskResponseDto
+{
+    public Guid TaskId { get; set; }
+    
+    public JsonDocument TaskData { get; set; } = null!;
+}

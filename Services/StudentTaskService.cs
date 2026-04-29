@@ -85,6 +85,24 @@ public class StudentTaskService : IStudentTaskService
         return Result<StudentTaskResponseDto>.Success(MapToDto(existing));
     }
 
+    public async Task<Result<StudentTaskResponseDto>> MarkAsPassedAsync(Guid studentId, Guid taskId, double? score = null)
+    {
+        if (studentId == Guid.Empty || taskId == Guid.Empty)
+            return Result<StudentTaskResponseDto>.Failure("Student id and task id are required.");
+
+        var existing = await _studentTaskRepo.GetAsync(studentId, taskId);
+        if (existing is null)
+            return Result<StudentTaskResponseDto>.Failure("Student task was not found.");
+
+        existing.Passed = true;
+        existing.CompletedAt = DateTime.UtcNow;
+        if (score.HasValue && score.Value >= 0 && score.Value <= 100)
+            existing.Score = score.Value;
+
+        await _studentTaskRepo.UpdateAsync(existing);
+        return Result<StudentTaskResponseDto>.Success(MapToDto(existing));
+    }
+
     public async Task<Result<bool>> DeleteAsync(Guid studentId, Guid taskId)
     {
         if (studentId == Guid.Empty || taskId == Guid.Empty) return Result<bool>.Failure("Student id and task id are required.");

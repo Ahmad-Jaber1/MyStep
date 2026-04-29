@@ -140,32 +140,60 @@ public class TaskSearchVectorService : ITaskSearchVectorService
         return Result<TaskGenerationPreparationResponseDto>.Success(contextResult.Data.Preparation);
     }
 
-    public async Task<Result<JsonDocument>> GenerateTaskAsync(Guid studentId, int mainSkillId)
+    public async Task<Result<GenerateTaskResponseDto>> GenerateTaskAsync(Guid studentId, int mainSkillId)
     {
         var contextResult = await BuildGenerationContextAsync(studentId, mainSkillId);
         if (!contextResult.IsSuccess || contextResult.Data is null)
         {
-            return Result<JsonDocument>.Failure(contextResult.ErrorMessage ?? "Task generation preparation failed.");
+            return Result<GenerateTaskResponseDto>.Failure(contextResult.ErrorMessage ?? "Task generation preparation failed.");
         }
 
-        var generationResult = await _generationClient.GenerateContentAsync(contextResult.Data.Preparation.GenerationPrompt);
-        if (!generationResult.IsSuccess)
+        const int maxRetries = 3;
+        for (var attempt = 1; attempt <= maxRetries; attempt++)
         {
-            return Result<JsonDocument>.Failure(generationResult.ErrorMessage ?? "Task generation failed.");
+            var generationResult = await _generationClient.GenerateContentAsync(contextResult.Data.Preparation.GenerationPrompt);
+            if (!generationResult.IsSuccess)
+            {
+                if (attempt < maxRetries)
+                    continue;
+                return Result<GenerateTaskResponseDto>.Failure(generationResult.ErrorMessage ?? "Task generation failed after multiple attempts.");
+            }
+
+            if (!TryParseGeneratedTask(generationResult.Data!, out var generatedTask, out var generatedPayload, out var parseError))
+            {
+                if (attempt < maxRetries)
+                    continue;
+                return Result<GenerateTaskResponseDto>.Failure(parseError);
+            }
+
+            var persistResult = await PersistGeneratedTaskAsync(studentId, mainSkillId, contextResult.Data, generatedTask, generatedPayload!);
+            if (!persistResult.IsSuccess)
+            {
+                // If validation fails (objective constraints), retry silently; if DB error, fail immediately
+                if (IsValidationError(persistResult.ErrorMessage) && attempt < maxRetries)
+                {
+                    continue;
+                }
+
+                return Result<GenerateTaskResponseDto>.Failure(persistResult.ErrorMessage ?? "Failed to persist generated task.");
+            }
+
+            // Success: return both task ID and the generated task
+            return Result<GenerateTaskResponseDto>.Success(new GenerateTaskResponseDto
+            {
+                TaskId = persistResult.Data!,
+                TaskData = generatedTask
+            });
         }
 
-        if (!TryParseGeneratedTask(generationResult.Data!, out var generatedTask, out var generatedPayload, out var parseError))
-        {
-            return Result<JsonDocument>.Failure(parseError);
-        }
+        return Result<GenerateTaskResponseDto>.Failure("Task generation failed: could not generate valid task after multiple attempts.");
+    }
 
-        var persistResult = await PersistGeneratedTaskAsync(studentId, mainSkillId, contextResult.Data, generatedTask, generatedPayload!);
-        if (!persistResult.IsSuccess)
-        {
-            return Result<JsonDocument>.Failure(persistResult.ErrorMessage ?? "Failed to persist generated task.");
-        }
-
-        return Result<JsonDocument>.Success(generatedTask);
+    private static bool IsValidationError(string? errorMessage)
+    {
+        return !string.IsNullOrWhiteSpace(errorMessage) &&
+               (errorMessage.Contains("outside the allowed list", StringComparison.OrdinalIgnoreCase) ||
+                errorMessage.Contains("must include at least one target", StringComparison.OrdinalIgnoreCase));
     }
 
     private async Task<Result<GenerationContext>> BuildGenerationContextAsync(Guid studentId, int mainSkillId)
@@ -251,12 +279,11 @@ public class TaskSearchVectorService : ITaskSearchVectorService
             return Result<GenerationContext>.Failure(embeddingResult.ErrorMessage!);
         }
 
-        if (embeddingResult.Data is null || embeddingResult.Data.Length != ExpectedVectorSize)
+        if (!TryNormalizeEmbeddingVector(embeddingResult.Data, out var queryVector, out var vectorError))
         {
-            return Result<GenerationContext>.Failure($"Embedding API returned vector with {embeddingResult.Data?.Length ?? 0} values, expected {ExpectedVectorSize}.");
+            return Result<GenerationContext>.Failure(vectorError);
         }
 
-        var queryVector = embeddingResult.Data;
         var similarTasks = await _taskItemRepo.GetMostSimilarByVectorAsync(mainSkillId, new Pgvector.Vector(queryVector), DefaultTopTaskCount);
 
         var taskMatches = new List<StudentTaskMatchResponseDto>();
@@ -432,15 +459,51 @@ public class TaskSearchVectorService : ITaskSearchVectorService
         }
 
         builder.AppendLine();
-        builder.AppendLine("STRICT TASK GENERATION RULES");
+        builder.AppendLine("=== CRITICAL OBJECTIVE CONSTRAINT RULES (SYSTEM WILL REJECT IF VIOLATED) ===");
+        builder.AppendLine();
+        builder.AppendLine("TARGET LEARNING OBJECTIVES (MUST USE ONLY THESE IDS FOR targeted_objectives):");
+        foreach (var target in targetDetails)
+        {
+            builder.AppendLine($"  - ID: {target.ObjectiveId}");
+        }
+        builder.AppendLine();
+        builder.AppendLine("ALLOWED PREREQUISITE LEARNING OBJECTIVES (MUST USE ONLY THESE IDS FOR additional_skills_required):");
+        foreach (var prereq in prerequisiteDetails)
+        {
+            builder.AppendLine($"  - ID: {prereq.ObjectiveId}");
+        }
+        builder.AppendLine();
+        builder.AppendLine("MANDATORY CONSTRAINTS:");
+        builder.AppendLine("1. EVERY objective ID in targeted_objectives MUST come from the TARGET LEARNING OBJECTIVES list above.");
+        builder.AppendLine("   - Violation: If you include ANY ID not in that list, the system will REJECT the entire task and regenerate.");
+        builder.AppendLine("   - Example: If target list is [10, 11, 12], you CANNOT use ID 7, 8, 9, or any other ID.");
+        builder.AppendLine();
+        builder.AppendLine("2. EVERY objective ID in additional_skills_required[].used_learning_goal MUST come from the ALLOWED PREREQUISITE list above.");
+        builder.AppendLine("   - Violation: If you include ANY ID not in that list, the system will REJECT the entire task and regenerate.");
+        builder.AppendLine("   - Example: If prerequisite list is [1, 2, 3], you CANNOT use ID 4, 5, 6, 7, or any other ID.");
+        builder.AppendLine();
+        builder.AppendLine("3. You MUST NOT invent, assume, or guess at objective IDs.");
+        builder.AppendLine("   - Use ONLY the numeric IDs provided in the two lists above.");
+        builder.AppendLine("   - Do not use IDs from the full ALL SKILLS section unless explicitly in the allowed lists.");
+        builder.AppendLine();
+        builder.AppendLine("4. If you cannot build a valid task using ONLY these objective IDs, generate a task that:");
+        builder.AppendLine("   - Uses at least 1 target objective from the allowed target list.");
+        builder.AppendLine("   - Uses 0 or more (up to all) allowed prerequisite objectives.");
+        builder.AppendLine("   - NEVER uses any objective outside these two lists.");
+        builder.AppendLine();
+        builder.AppendLine("5. Double-check before output:");
+        builder.AppendLine("   - For each ID in targeted_objectives, verify it appears in the TARGET list above.");
+        builder.AppendLine("   - For each ID in additional_skills_required[].used_learning_goal, verify it appears in the ALLOWED PREREQUISITE list above.");
+        builder.AppendLine();
+        builder.AppendLine("=== STRICT TASK GENERATION RULES ===");
         builder.AppendLine("1) Task size is mandatory: estimated solution should be 40-150 lines of implementation code.");
         builder.AppendLine("2) Task should represent ONE feature only, not full system, not mini-project, not over-engineered architecture.");
         builder.AppendLine("3) Scenario must feel like a real business assignment from a company, with a concrete stakeholder, process, input, output, and constraints.");
-        builder.AppendLine("4) targeted_objectives must contain only numeric objective IDs from TARGET LEARNING OBJECTIVES list.");
+        builder.AppendLine("4) targeted_objectives must contain only numeric objective IDs from TARGET LEARNING OBJECTIVES list (listed above in CRITICAL section).");
         builder.AppendLine("5) The generated task must target at least one objective from TARGET LEARNING OBJECTIVES.");
-        builder.AppendLine("6) additional_skills_required may include one or more prerequisite objectives only from PREREQUISITE LEARNING OBJECTIVES list.");
+        builder.AppendLine("6) additional_skills_required may include one or more prerequisite objectives ONLY from ALLOWED PREREQUISITE LEARNING OBJECTIVES list (listed above in CRITICAL section).");
         builder.AppendLine("7) For each additional_skills_required item, add skill_id, skill_name, used_learning_goal, and justification.");
-        builder.AppendLine("8) used_learning_goal must be a numeric objective ID only.");
+        builder.AppendLine("8) used_learning_goal must be a numeric objective ID only from the ALLOWED PREREQUISITE list.");
         builder.AppendLine("9) validation_criteria is critical and must include one or more checks for each targeted objective.");
         builder.AppendLine("10) Every targeted objective must have one or more validation points.");
         builder.AppendLine("11) Every prerequisite objective actually used in the generated task must have one or more validation points.");
@@ -452,9 +515,9 @@ public class TaskSearchVectorService : ITaskSearchVectorService
         builder.AppendLine("17) hints must be progressive from general to specific, still without giving final code.");
         builder.AppendLine("18) Keep output language clear and professional.");
         builder.AppendLine("19) Output MUST be JSON only.");
-        builder.AppendLine("20) Similar task examples are reference-only; never copy their target or prerequisite objectives unless they are present in this student's allowed lists.");
-        builder.AppendLine("21) Build the task only on what the student is known to understand from PREREQUISITE LEARNING OBJECTIVES plus the chosen TARGET LEARNING OBJECTIVES.");
-        builder.AppendLine("22) If the task requires prerequisite knowledge, include EVERY required prerequisite objective in additional_skills_required (from the allowed prerequisite list only).");
+        builder.AppendLine("20) Similar task examples are reference-only; NEVER copy objective IDs from examples unless they appear in this student's allowed target or prerequisite lists.");
+        builder.AppendLine("21) Build the task ONLY using objectives from the two lists in the CRITICAL section above.");
+        builder.AppendLine("22) If the task requires prerequisite knowledge, include EVERY required prerequisite objective in additional_skills_required.");
         builder.AppendLine("23) Never design a task that depends on unstated prerequisite knowledge.");
         builder.AppendLine();
 
@@ -540,12 +603,40 @@ public class TaskSearchVectorService : ITaskSearchVectorService
             return embeddingResult;
         }
 
-        if (embeddingResult.Data is null || embeddingResult.Data.Length != ExpectedVectorSize)
+        if (!TryNormalizeEmbeddingVector(embeddingResult.Data, out var normalizedVector, out var vectorError))
         {
-            return Result<float[]>.Failure($"Embedding API returned vector with {embeddingResult.Data?.Length ?? 0} values, expected {ExpectedVectorSize}.");
+            return Result<float[]>.Failure(vectorError);
         }
 
-        return Result<float[]>.Success(embeddingResult.Data);
+        return Result<float[]>.Success(normalizedVector);
+    }
+
+    private static bool TryNormalizeEmbeddingVector(float[]? sourceVector, out float[] normalizedVector, out string errorMessage)
+    {
+        normalizedVector = [];
+        errorMessage = string.Empty;
+
+        if (sourceVector is null || sourceVector.Length == 0)
+        {
+            errorMessage = "Embedding API returned an empty vector.";
+            return false;
+        }
+
+        if (sourceVector.Length > ExpectedVectorSize)
+        {
+            errorMessage = $"Embedding API returned vector with {sourceVector.Length} values, which exceeds the supported size {ExpectedVectorSize}.";
+            return false;
+        }
+
+        if (sourceVector.Length == ExpectedVectorSize)
+        {
+            normalizedVector = sourceVector;
+            return true;
+        }
+
+        normalizedVector = new float[ExpectedVectorSize];
+        Array.Copy(sourceVector, normalizedVector, sourceVector.Length);
+        return true;
     }
 
     private static double ComputeCosineSimilarity(float[] queryVector, float[] candidateVector)
@@ -692,7 +783,7 @@ public class TaskSearchVectorService : ITaskSearchVectorService
         }
     }
 
-    private async Task<Result<bool>> PersistGeneratedTaskAsync(
+    private async Task<Result<Guid>> PersistGeneratedTaskAsync(
         Guid studentId,
         int mainSkillId,
         GenerationContext context,
@@ -701,23 +792,29 @@ public class TaskSearchVectorService : ITaskSearchVectorService
     {
         if (payload.TargetedObjectives.Count == 0)
         {
-            return Result<bool>.Failure("Generated task must include at least one target objective.");
+            return Result<Guid>.Failure("Generated task must include at least one target objective.");
         }
 
-        var unknownTargetIds = payload.TargetedObjectives.Where(id => !context.AllowedTargetObjectiveIds.Contains(id)).Distinct().ToList();
+        var normalizedTargetObjectiveIds = payload.TargetedObjectives.Distinct().ToList();
+        var unknownTargetIds = normalizedTargetObjectiveIds.Where(id => !context.AllowedTargetObjectiveIds.Contains(id)).Distinct().ToList();
         if (unknownTargetIds.Count > 0)
         {
-            return Result<bool>.Failure($"Generated task included target objectives outside the allowed list: {string.Join(", ", unknownTargetIds)}.");
+            return Result<Guid>.Failure($"Generated task included target objectives outside the allowed list: {string.Join(", ", unknownTargetIds)}.");
         }
 
-        var unknownPrerequisiteIds = payload.AdditionalSkillsRequired
+        var normalizedAdditionalSkills = payload.AdditionalSkillsRequired
+            .GroupBy(item => item.UsedLearningGoal)
+            .Select(group => group.First())
+            .ToList();
+
+        var unknownPrerequisiteIds = normalizedAdditionalSkills
             .Select(item => item.UsedLearningGoal)
             .Where(id => !context.AllowedPrerequisiteObjectiveIds.Contains(id))
             .Distinct()
             .ToList();
         if (unknownPrerequisiteIds.Count > 0)
         {
-            return Result<bool>.Failure($"Generated task included prerequisite objectives outside the allowed list: {string.Join(", ", unknownPrerequisiteIds)}.");
+            return Result<Guid>.Failure($"Generated task included prerequisite objectives outside the allowed list: {string.Join(", ", unknownPrerequisiteIds)}.");
         }
 
         var taskEntity = new TaskItem
@@ -729,7 +826,7 @@ public class TaskSearchVectorService : ITaskSearchVectorService
             SearchVector = new Pgvector.Vector(new float[ExpectedVectorSize])
         };
 
-        taskEntity.Targets = payload.TargetedObjectives
+        taskEntity.Targets = normalizedTargetObjectiveIds
             .Select(objectiveId => new TaskTarget
             {
                 TaskId = taskEntity.Id,
@@ -738,12 +835,14 @@ public class TaskSearchVectorService : ITaskSearchVectorService
             })
             .ToList();
 
-        taskEntity.Prerequisites = payload.AdditionalSkillsRequired
+        taskEntity.Prerequisites = normalizedAdditionalSkills
             .Select(item => new TaskPrerequisite
             {
+                // Keep within DB max length and avoid null persistence issues.
+                
                 TaskId = taskEntity.Id,
                 LearningObjectiveId = item.UsedLearningGoal,
-                Justification = item.Justification,
+                Justification = TruncateToMaxLength(item.Justification, 500),
                 Task = taskEntity
             })
             .ToList();
@@ -751,7 +850,7 @@ public class TaskSearchVectorService : ITaskSearchVectorService
         var taskVectorResult = await BuildVectorAsync(taskEntity);
         if (!taskVectorResult.IsSuccess)
         {
-            return Result<bool>.Failure(taskVectorResult.ErrorMessage ?? "Failed to build task vector.");
+            return Result<Guid>.Failure(taskVectorResult.ErrorMessage ?? "Failed to build task vector.");
         }
 
         taskEntity.SearchVector = new Pgvector.Vector(taskVectorResult.Data!);
@@ -771,26 +870,45 @@ public class TaskSearchVectorService : ITaskSearchVectorService
         {
             await _taskItemRepo.AddAsync(taskEntity);
 
-            foreach (var target in taskEntity.Targets)
-            {
-                await _taskTargetRepo.AddAsync(target);
-            }
-
-            foreach (var prerequisite in taskEntity.Prerequisites)
-            {
-                await _taskPrerequisiteRepo.AddAsync(prerequisite);
-            }
-
             await _studentTaskRepo.AddAsync(studentTask);
 
             await transaction.CommitAsync();
-            return Result<bool>.Success(true);
+            return Result<Guid>.Success(taskEntity.Id);
         }
         catch (Exception ex)
         {
             await transaction.RollbackAsync();
-            return Result<bool>.Failure($"Failed to persist generated task: {ex.Message}");
+            return Result<Guid>.Failure($"Failed to persist generated task: {BuildExceptionMessage(ex)}");
         }
+    }
+
+    private static string BuildExceptionMessage(Exception ex)
+    {
+        var messages = new List<string>();
+        Exception? current = ex;
+
+        while (current is not null)
+        {
+            if (!string.IsNullOrWhiteSpace(current.Message))
+            {
+                messages.Add(current.Message.Trim());
+            }
+
+            current = current.InnerException;
+        }
+
+        return string.Join(" | ", messages.Distinct());
+    }
+
+    private static string TruncateToMaxLength(string? value, int maxLength)
+    {
+        var safeValue = value ?? string.Empty;
+        if (safeValue.Length <= maxLength)
+        {
+            return safeValue;
+        }
+
+        return safeValue[..maxLength];
     }
 
     private static bool TryParseGeneratedTask(string content, out JsonDocument generatedTask, out GeneratedTaskPayload? payload, out string errorMessage)

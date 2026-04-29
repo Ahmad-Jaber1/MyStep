@@ -47,6 +47,13 @@ public class StudentTasksController : ControllerBase
         return ToActionResult(result);
     }
 
+    [HttpPost("{studentId:guid}/{taskId:guid}/mark-passed")]
+    public async Task<IActionResult> MarkAsPassed(Guid studentId, Guid taskId, [FromQuery] double? score = null)
+    {
+        var result = await _studentTaskService.MarkAsPassedAsync(studentId, taskId, score);
+        return ToActionResult(result);
+    }
+
     [HttpDelete("{studentId:guid}/{taskId:guid}")]
     public async Task<IActionResult> Delete(Guid studentId, Guid taskId)
     {

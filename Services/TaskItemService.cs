@@ -103,7 +103,7 @@ public class TaskItemService : ITaskItemService
             TaskData = dto.TaskData!,
             SearchVector = dto.SearchVector is { Length: > 0 }
                 ? new Vector(dto.SearchVector)
-                : new Vector(new float[4096])
+                : new Vector(new float[1024])
         };
 
         await _taskItemRepo.AddAsync(entity);

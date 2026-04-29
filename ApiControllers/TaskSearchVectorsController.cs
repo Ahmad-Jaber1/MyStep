@@ -37,7 +37,14 @@ public class TaskSearchVectorsController : ControllerBase
     public async Task<IActionResult> GenerateTask([FromBody] PrepareTaskGenerationRequestDto dto)
     {
         var result = await _taskSearchVectorService.GenerateTaskAsync(dto.StudentId, dto.MainSkillId);
-        return ToActionResult(result);
+        if (result.IsSuccess && result.Data is GenerateTaskResponseDto generateResponse)
+        {
+            return Ok(new { taskId = generateResponse.TaskId, taskData = generateResponse.TaskData });
+        }
+
+        return result.IsSuccess 
+            ? Ok(result.Data) 
+            : (IsNotFound(result.ErrorMessage) ? NotFound(result.ErrorMessage) : BadRequest(result.ErrorMessage));
     }
 
     private IActionResult ToActionResult<T>(Result<T> result)
