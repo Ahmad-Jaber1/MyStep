@@ -65,8 +65,10 @@ public class Program
 
         builder.Services.Configure<EmbeddingOptions>(builder.Configuration.GetSection("Embedding"));
         builder.Services.Configure<GenerationOptions>(builder.Configuration.GetSection("Generation"));
+        builder.Services.Configure<GitHubOptions>(builder.Configuration.GetSection("GitHub"));
         builder.Services.AddHttpClient<IEmbeddingClient, HuggingFaceEmbeddingClient>();
         builder.Services.AddHttpClient<IGenerationClient, DashScopeGenerationClient>();
+        builder.Services.AddHttpClient<IGitHubRepositoryCodeService, GitHubRepositoryCodeService>();
 
         // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
         builder.Services.AddOpenApi();

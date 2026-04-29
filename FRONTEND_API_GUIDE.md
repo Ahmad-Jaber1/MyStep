@@ -64,50 +64,101 @@ Request DTO:
 Success response: pure task JSON object returned directly from the model output
 ```json
 {
-  "task_name": "Request Audit Middleware with Header Injection and Attribute Routing",
-  "skill_category": "ASP.NET Core Logics",
-  "scenario": {
-    "story": "A fintech startup requires an internal auditing mechanism for their Quote Calculation API.",
-    "requirement": "Implement a single feature with middleware and an attribute-routed controller endpoint."
-  },
-  "targeted_objectives": [48, 50, 51],
-  "additional_skills_required": [
-    {
-      "skill_id": 1,
-      "skill_name": "Basic C# Programming",
-      "used_learning_goal": 1,
-      "justification": "Required to declare timestamps and generate unique identifiers."
-    }
-  ],
-  "instructions": [
-    "Start by defining the data model with annotations.",
-    "Add the middleware and register it in the pipeline."
-  ],
-  "validation_criteria": [
-    {
-      "skill_id": 4,
-      "criterion": "A custom middleware class is implemented and registered in the application pipeline.",
-      "related_learning_objective": 48
+  "taskId": "f6f3b2a6-0df6-4b6b-8f4d-7d4a2b5f4c1a",
+  "taskData": {
+    "task_name": "Request Audit Middleware with Header Injection and Attribute Routing",
+    "skill_category": "ASP.NET Core Logics",
+    "scenario": {
+      "story": "A fintech startup requires an internal auditing mechanism for their Quote Calculation API.",
+      "requirement": "Implement a single feature with middleware and an attribute-routed controller endpoint."
     },
-    {
-      "skill_id": 0,
-      "criterion": "A request with invalid quote quantity returns a 400 status code.",
-      "related_learning_objective": 0
-    }
-  ],
-  "hints": [
-    "Start with the data model.",
-    "Then implement the middleware behavior."
-  ]
+    "targeted_objectives": [48, 50, 51],
+    "additional_skills_required": [
+      {
+        "skill_id": 1,
+        "skill_name": "Basic C# Programming",
+        "used_learning_goal": 1,
+        "justification": "Required to declare timestamps and generate unique identifiers."
+      }
+    ],
+    "instructions": [
+      "Start by defining the data model with annotations.",
+      "Add the middleware and register it in the pipeline."
+    ],
+    "validation_criteria": [
+      {
+        "skill_id": 4,
+        "criterion": "A custom middleware class is implemented and registered in the application pipeline.",
+        "related_learning_objective": 48
+      },
+      {
+        "skill_id": 0,
+        "criterion": "A request with invalid quote quantity returns a 400 status code.",
+        "related_learning_objective": 0
+      }
+    ],
+    "hints": [
+      "Start with the data model.",
+      "Then implement the middleware behavior."
+    ]
+  }
 }
 ```
 
 Important notes:
-- The response is the pure generated task JSON only, not a wrapper object.
-- The frontend should render the returned JSON directly or transform it into the UI format it needs.
+- The response now includes a wrapper object with `taskId` and `taskData`.
+- `taskId` is the newly created task identifier.
+- `taskData` is the generated task JSON returned by the model.
+- The frontend can store the task id immediately and render `taskData` directly or transform it into the UI format it needs.
 - `validation_criteria` uses `skill_id: 0` and `related_learning_objective: 0` for business-logic checks that are not tied to a specific learning objective.
 - The model output may include objective IDs that do not belong to the current student unless the backend has already constrained them in the prompt; the backend is responsible for enforcing the allowed target and prerequisite lists.
 - If the frontend needs to regenerate a task, call the same endpoint again with the same `studentId` and `mainSkillId`.
+
+### 8) Mark Task As Passed
+
+`POST /api/StudentTasks/{studentId}/{taskId}/mark-passed`
+
+Use this after the student completes a generated task and you want to mark it as passed.
+
+Headers:
+```http
+Authorization: Bearer <token>
+```
+
+Path parameters:
+- `studentId`: guid, required
+- `taskId`: guid, required
+
+Optional query parameter:
+- `score`: number from `0` to `100`
+
+Example request:
+```http
+POST /api/StudentTasks/d546ab00-024d-42b4-837c-9d42da4fa281/f6f3b2a6-0df6-4b6b-8f4d-7d4a2b5f4c1a/mark-passed?score=85
+Authorization: Bearer <token>
+```
+
+Success response: `StudentTaskResponseDto`
+```json
+{
+  "studentId": "d546ab00-024d-42b4-837c-9d42da4fa281",
+  "taskId": "f6f3b2a6-0df6-4b6b-8f4d-7d4a2b5f4c1a",
+  "numberInMainSkill": 3,
+  "passed": true,
+  "startedAt": "2026-04-29T15:00:00Z",
+  "completedAt": "2026-04-29T15:10:00Z",
+  "score": 85
+}
+```
+
+Response fields:
+- `studentId`: guid
+- `taskId`: guid
+- `numberInMainSkill`: integer
+- `passed`: boolean
+- `startedAt`: datetime or null
+- `completedAt`: datetime or null
+- `score`: number or null
 
 ## Auth APIs
 
