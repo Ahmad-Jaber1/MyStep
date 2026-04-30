@@ -38,11 +38,6 @@ public class GitHubRepositoryCodeService : IGitHubRepositoryCodeService
             _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("MyStep.Api");
         }
 
-        if (_httpClient.DefaultRequestHeaders.Accept.Count == 0)
-        {
-            _httpClient.DefaultRequestHeaders.Accept.ParseAdd("application/vnd.github+json");
-        }
-
         if (!_httpClient.DefaultRequestHeaders.Contains("X-GitHub-Api-Version"))
         {
             _httpClient.DefaultRequestHeaders.Add("X-GitHub-Api-Version", "2022-11-28");
@@ -99,22 +94,24 @@ public class GitHubRepositoryCodeService : IGitHubRepositoryCodeService
             await throttler.WaitAsync();
             try
             {
-                var blobResponse = await SendGitHubRequestAsync<GitHubBlobResponse>(HttpMethod.Get, $"repos/{owner}/{repositoryName}/git/blobs/{file.Sha}");
-                if (!blobResponse.IsSuccess)
+                var contentResponse = await SendGitHubRawRequestAsync(
+                    HttpMethod.Get,
+                    $"repos/{owner}/{repositoryName}/contents/{BuildContentPath(file.Path)}?ref={Uri.EscapeDataString(resolvedReference)}");
+
+                if (!contentResponse.IsSuccess)
                 {
                     lock (errors)
                     {
-                        errors.Add($"{file.Path}: {blobResponse.ErrorMessage}");
+                        errors.Add($"{file.Path}: {contentResponse.ErrorMessage}");
                     }
                     return;
                 }
 
-                var content = DecodeBlobContent(blobResponse.Data);
-                if (content is null)
+                if (string.IsNullOrWhiteSpace(contentResponse.Data))
                 {
                     lock (errors)
                     {
-                        errors.Add($"{file.Path}: GitHub returned an empty or unsupported blob payload.");
+                        errors.Add($"{file.Path}: GitHub returned an empty file payload.");
                     }
                     return;
                 }
@@ -124,7 +121,7 @@ public class GitHubRepositoryCodeService : IGitHubRepositoryCodeService
                     fetchedFiles.Add(new GitHubRepositoryFileDto
                     {
                         Path = file.Path,
-                        Content = content
+                        Content = contentResponse.Data
                     });
                 }
             }
@@ -163,6 +160,11 @@ public class GitHubRepositoryCodeService : IGitHubRepositoryCodeService
         where TResponse : class
     {
         using var request = new HttpRequestMessage(method, BuildGitHubUrl(relativeUrl));
+        if (request.Headers.Accept.Count == 0)
+        {
+            request.Headers.Accept.ParseAdd("application/vnd.github+json");
+        }
+
         if (!string.IsNullOrWhiteSpace(_options.ApiKey))
         {
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _options.ApiKey);
@@ -187,6 +189,32 @@ public class GitHubRepositoryCodeService : IGitHubRepositoryCodeService
         }
 
         return Result<TResponse>.Success(data);
+    }
+
+    private async Task<Result<string>> SendGitHubRawRequestAsync(HttpMethod method, string relativeUrl)
+    {
+        using var request = new HttpRequestMessage(method, BuildGitHubUrl(relativeUrl));
+        request.Headers.Accept.Clear();
+        request.Headers.Accept.ParseAdd("application/vnd.github.raw");
+
+        if (!string.IsNullOrWhiteSpace(_options.ApiKey))
+        {
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _options.ApiKey);
+        }
+
+        using var response = await _httpClient.SendAsync(request);
+        var responseBody = await response.Content.ReadAsStringAsync();
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var message = string.IsNullOrWhiteSpace(responseBody)
+                ? $"GitHub request failed with status code {(int)response.StatusCode}."
+                : $"GitHub request failed with status code {(int)response.StatusCode}: {responseBody}";
+
+            return Result<string>.Failure(message);
+        }
+
+        return Result<string>.Success(responseBody);
     }
 
     private string BuildGitHubUrl(string relativeUrl)
@@ -278,6 +306,14 @@ public class GitHubRepositoryCodeService : IGitHubRepositoryCodeService
         return string.IsNullOrWhiteSpace(reference) ? null : reference.Trim();
     }
 
+    private static string BuildContentPath(string path)
+    {
+        return string.Join(
+            "/",
+            path.Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(Uri.EscapeDataString));
+    }
+
     private static bool IsCodeFile(string path)
     {
         var normalizedPath = path.Replace('\\', '/');
@@ -296,23 +332,6 @@ public class GitHubRepositoryCodeService : IGitHubRepositoryCodeService
         }
 
         return CodeExtensions.Contains(extension);
-    }
-
-    private static string? DecodeBlobContent(GitHubBlobResponse? response)
-    {
-        if (response is null || string.IsNullOrWhiteSpace(response.Content) || !string.Equals(response.Encoding, "base64", StringComparison.OrdinalIgnoreCase))
-        {
-            return null;
-        }
-
-        var content = response.Content.Replace("\n", string.Empty).Replace("\r", string.Empty).Trim();
-        if (string.IsNullOrWhiteSpace(content))
-        {
-            return null;
-        }
-
-        var bytes = Convert.FromBase64String(content);
-        return Encoding.UTF8.GetString(bytes);
     }
 
     private sealed class GitHubRepositoryResponse
@@ -343,14 +362,5 @@ public class GitHubRepositoryCodeService : IGitHubRepositoryCodeService
 
         [JsonPropertyName("sha")]
         public string Sha { get; set; } = string.Empty;
-    }
-
-    private sealed class GitHubBlobResponse
-    {
-        [JsonPropertyName("encoding")]
-        public string Encoding { get; set; } = string.Empty;
-
-        [JsonPropertyName("content")]
-        public string Content { get; set; } = string.Empty;
     }
 }

@@ -193,7 +193,13 @@ public class TaskSearchVectorService : ITaskSearchVectorService
     {
         return !string.IsNullOrWhiteSpace(errorMessage) &&
                (errorMessage.Contains("outside the allowed list", StringComparison.OrdinalIgnoreCase) ||
-                errorMessage.Contains("must include at least one target", StringComparison.OrdinalIgnoreCase));
+                errorMessage.Contains("must include at least one target", StringComparison.OrdinalIgnoreCase) ||
+                errorMessage.Contains("validation criteria", StringComparison.OrdinalIgnoreCase) ||
+                errorMessage.Contains("targeted_objectives", StringComparison.OrdinalIgnoreCase) ||
+                errorMessage.Contains("additional_skills_required", StringComparison.OrdinalIgnoreCase) ||
+                errorMessage.Contains("outside targeted", StringComparison.OrdinalIgnoreCase) ||
+                errorMessage.Contains("outside prerequisite", StringComparison.OrdinalIgnoreCase) ||
+                errorMessage.Contains("not allowed", StringComparison.OrdinalIgnoreCase));
     }
 
     private async Task<Result<GenerationContext>> BuildGenerationContextAsync(Guid studentId, int mainSkillId)
@@ -507,18 +513,19 @@ public class TaskSearchVectorService : ITaskSearchVectorService
         builder.AppendLine("9) validation_criteria is critical and must include one or more checks for each targeted objective.");
         builder.AppendLine("10) Every targeted objective must have one or more validation points.");
         builder.AppendLine("11) Every prerequisite objective actually used in the generated task must have one or more validation points.");
-        builder.AppendLine("12) validation_criteria must also include business-logic correctness checks for scenario requirements.");
-        builder.AppendLine("13) For business-logic validations not tied to one learning objective, set both skill_id and related_learning_objective to 0.");
-        builder.AppendLine("14) Every validation entry must include skill_id and related_learning_objective fields.");
-        builder.AppendLine("15) Keep validations atomic, objective, and technically verifiable from implementation behavior.");
-        builder.AppendLine("16) instructions must guide student step by step without revealing full solution code.");
-        builder.AppendLine("17) hints must be progressive from general to specific, still without giving final code.");
-        builder.AppendLine("18) Keep output language clear and professional.");
-        builder.AppendLine("19) Output MUST be JSON only.");
-        builder.AppendLine("20) Similar task examples are reference-only; NEVER copy objective IDs from examples unless they appear in this student's allowed target or prerequisite lists.");
-        builder.AppendLine("21) Build the task ONLY using objectives from the two lists in the CRITICAL section above.");
-        builder.AppendLine("22) If the task requires prerequisite knowledge, include EVERY required prerequisite objective in additional_skills_required.");
-        builder.AppendLine("23) Never design a task that depends on unstated prerequisite knowledge.");
+        builder.AppendLine("12) validation_criteria must NOT include objectives outside targeted_objectives or additional_skills_required.");
+        builder.AppendLine("13) Any validation that is not tied to a target objective or a prerequisite objective must be a pure business-logic check for the scenario requirements.");
+        builder.AppendLine("14) For business-logic validations not tied to one learning objective, set both skill_id and related_learning_objective to 0.");
+        builder.AppendLine("15) Every validation entry must include skill_id and related_learning_objective fields.");
+        builder.AppendLine("16) Keep validations atomic, objective, and technically verifiable from implementation behavior.");
+        builder.AppendLine("17) instructions must guide student step by step without revealing full solution code.");
+        builder.AppendLine("18) hints must be progressive from general to specific, still without giving final code.");
+        builder.AppendLine("19) Keep output language clear and professional.");
+        builder.AppendLine("20) Output MUST be JSON only.");
+        builder.AppendLine("21) Similar task examples are reference-only; NEVER copy objective IDs from examples unless they appear in this student's allowed target or prerequisite lists.");
+        builder.AppendLine("22) Build the task ONLY using objectives from the two lists in the CRITICAL section above.");
+        builder.AppendLine("23) If the task requires prerequisite knowledge, include EVERY required prerequisite objective in additional_skills_required.");
+        builder.AppendLine("24) Never design a task that depends on unstated prerequisite knowledge.");
         builder.AppendLine();
 
         builder.AppendLine("STRICT VALIDATION RULES (MANDATORY)");
@@ -537,6 +544,7 @@ public class TaskSearchVectorService : ITaskSearchVectorService
         builder.AppendLine("  - Include one or more criteria for EACH targeted_objective.");
         builder.AppendLine("  - Include one or more criteria for EACH objective used in additional_skills_required.");
         builder.AppendLine("  - Not reference any objective outside targeted_objectives or additional_skills_required.");
+        builder.AppendLine("  - Use skill_id/objective fields only for target objectives, prerequisite objectives, or pure business-logic checks with skill_id=0 and related_learning_objective=0.");
         builder.AppendLine("- skill_name values MUST exactly match provided skill names (case-sensitive, no rewording).");
         builder.AppendLine("- All validation criteria MUST be atomic, testable, and aligned with implementation behavior.");
         builder.AppendLine("- Before final output, internally verify:");

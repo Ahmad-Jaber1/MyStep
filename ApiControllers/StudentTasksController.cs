@@ -12,10 +12,14 @@ namespace ApiControllers;
 public class StudentTasksController : ControllerBase
 {
     private readonly IStudentTaskService _studentTaskService;
+    private readonly ITaskSubmissionEvaluationService _taskSubmissionEvaluationService;
 
-    public StudentTasksController(IStudentTaskService studentTaskService)
+    public StudentTasksController(
+        IStudentTaskService studentTaskService,
+        ITaskSubmissionEvaluationService taskSubmissionEvaluationService)
     {
         _studentTaskService = studentTaskService;
+        _taskSubmissionEvaluationService = taskSubmissionEvaluationService;
     }
 
     [HttpGet("by-student/{studentId:guid}")]
@@ -51,6 +55,18 @@ public class StudentTasksController : ControllerBase
     public async Task<IActionResult> MarkAsPassed(Guid studentId, Guid taskId, [FromQuery] double? score = null)
     {
         var result = await _studentTaskService.MarkAsPassedAsync(studentId, taskId, score);
+        return ToActionResult(result);
+    }
+
+    [HttpPost("{studentId:guid}/{taskId:guid}/evaluate")]
+    public async Task<IActionResult> EvaluateSubmission(Guid studentId, Guid taskId, [FromBody] EvaluateTaskSubmissionRequestDto dto)
+    {
+        if (dto is null || string.IsNullOrWhiteSpace(dto.RepositoryUrl))
+        {
+            return BadRequest("Repository URL is required.");
+        }
+
+        var result = await _taskSubmissionEvaluationService.EvaluateSubmissionAsync(studentId, taskId, dto.RepositoryUrl, dto.Ref);
         return ToActionResult(result);
     }
 

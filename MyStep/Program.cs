@@ -61,6 +61,7 @@ public class Program
         builder.Services.AddScoped<ITaskSearchVectorService, TaskSearchVectorService>();
         builder.Services.AddScoped<IStudentService, StudentService>();
         builder.Services.AddScoped<IStudentTaskService, StudentTaskService>();
+        builder.Services.AddScoped<ITaskSubmissionEvaluationService, TaskSubmissionEvaluationService>();
         builder.Services.AddScoped<IStudentLearningObjectiveService, StudentLearningObjectiveService>();
 
         builder.Services.Configure<EmbeddingOptions>(builder.Configuration.GetSection("Embedding"));
@@ -78,6 +79,12 @@ public class Program
                 o => o.UseVector()));
 
         var app = builder.Build();
+
+        using (var scope = app.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<MyStepDbContext>();
+            dbContext.Database.Migrate();
+        }
 
         // Configure the HTTP request pipeline.
         if (app.Environment.IsDevelopment())

@@ -14,6 +14,7 @@ namespace Repository.TablesConfiguration
             builder.HasKey(slo => new { slo.StudentId, slo.LearningObjectiveId });
 
             builder.Property(slo => slo.StreakCount)
+                .HasPrecision(18, 2)
                 .HasDefaultValue(1)
                 .IsRequired();
 

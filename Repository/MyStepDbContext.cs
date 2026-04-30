@@ -24,6 +24,8 @@ namespace Repository
         public DbSet<Student> Students => Set<Student>();
         public DbSet<StudentLearningObjective> StudentLearningObjectives => Set<StudentLearningObjective>();
         public DbSet<StudentTask> StudentTasks => Set<StudentTask>();
+        public DbSet<TaskSubmissionEvaluation> TaskSubmissionEvaluations => Set<TaskSubmissionEvaluation>();
+        public DbSet<TaskSubmissionEvaluationValidation> TaskSubmissionEvaluationValidations => Set<TaskSubmissionEvaluationValidation>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
