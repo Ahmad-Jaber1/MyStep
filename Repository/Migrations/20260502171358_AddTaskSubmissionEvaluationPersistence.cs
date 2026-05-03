@@ -1,16 +1,36 @@
-using System;
+﻿using System;
 using Microsoft.EntityFrameworkCore.Migrations;
+using Pgvector;
 
 #nullable disable
 
 namespace Repository.Migrations
 {
-    public partial class AddTaskSubmissionEvaluationsAndFractionalStreak : Migration
+    /// <inheritdoc />
+    public partial class AddTaskSubmissionEvaluationPersistence : Migration
     {
+        /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.Sql("ALTER TABLE student_learning_objectives ALTER COLUMN \"StreakCount\" TYPE double precision USING \"StreakCount\"::double precision;");
-            migrationBuilder.Sql("ALTER TABLE student_learning_objectives ALTER COLUMN \"StreakCount\" SET DEFAULT 1;");
+            migrationBuilder.AlterColumn<Vector>(
+                name: "SearchVector",
+                table: "tasks",
+                type: "vector(1024)",
+                nullable: false,
+                oldClrType: typeof(Vector),
+                oldType: "vector(4096)");
+
+            migrationBuilder.AlterColumn<double>(
+                name: "StreakCount",
+                table: "student_learning_objectives",
+                type: "double precision",
+                precision: 18,
+                scale: 2,
+                nullable: false,
+                defaultValue: 1.0,
+                oldClrType: typeof(int),
+                oldType: "integer",
+                oldDefaultValue: 1);
 
             migrationBuilder.CreateTable(
                 name: "task_submission_evaluations",
@@ -32,13 +52,13 @@ namespace Repository.Migrations
                 {
                     table.PrimaryKey("PK_task_submission_evaluations", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_tse_students_StudentId",
+                        name: "FK_task_submission_evaluations_students_StudentId",
                         column: x => x.StudentId,
                         principalTable: "students",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
-                        name: "FK_tse_tasks_TaskId",
+                        name: "FK_task_submission_evaluations_tasks_TaskId",
                         column: x => x.TaskId,
                         principalTable: "tasks",
                         principalColumn: "Id",
@@ -56,14 +76,14 @@ namespace Repository.Migrations
                     ObjectiveId = table.Column<int>(type: "integer", nullable: false),
                     ValidationString = table.Column<string>(type: "character varying(2000)", maxLength: 2000, nullable: false),
                     IsPass = table.Column<bool>(type: "boolean", nullable: false),
-                    WhyNotPass = table.Column<string>(type: "character varying(2000)", maxLength: 2000, nullable: true),
+                    WhyNotPass = table.Column<string>(type: "character varying(2000)", maxLength: 2000, nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_task_submission_evaluation_validations", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_tsev_tse_TaskSubmissionEvaluationId",
+                        name: "FK_task_submission_evaluation_validations_task_submission_eval~",
                         column: x => x.TaskSubmissionEvaluationId,
                         principalTable: "task_submission_evaluations",
                         principalColumn: "Id",
@@ -71,26 +91,22 @@ namespace Repository.Migrations
                 });
 
             migrationBuilder.CreateIndex(
-                name: "IX_tse_Student_Task_CreatedAt",
+                name: "IX_task_submission_evaluation_validations_TaskSubmissionEvalua~",
+                table: "task_submission_evaluation_validations",
+                columns: new[] { "TaskSubmissionEvaluationId", "ValidationId" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_task_submission_evaluations_StudentId_TaskId_CreatedAt",
                 table: "task_submission_evaluations",
                 columns: new[] { "StudentId", "TaskId", "CreatedAt" });
 
             migrationBuilder.CreateIndex(
-                name: "IX_tse_TaskId",
+                name: "IX_task_submission_evaluations_TaskId",
                 table: "task_submission_evaluations",
                 column: "TaskId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_tse_StudentId",
-                table: "task_submission_evaluations",
-                column: "StudentId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_tsev_EvalId_ValidationId",
-                table: "task_submission_evaluation_validations",
-                columns: new[] { "TaskSubmissionEvaluationId", "ValidationId" });
         }
 
+        /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(
@@ -99,8 +115,25 @@ namespace Repository.Migrations
             migrationBuilder.DropTable(
                 name: "task_submission_evaluations");
 
-            migrationBuilder.Sql("ALTER TABLE student_learning_objectives ALTER COLUMN \"StreakCount\" TYPE integer USING ROUND(\"StreakCount\")::integer;");
-            migrationBuilder.Sql("ALTER TABLE student_learning_objectives ALTER COLUMN \"StreakCount\" SET DEFAULT 1;");
+            migrationBuilder.AlterColumn<Vector>(
+                name: "SearchVector",
+                table: "tasks",
+                type: "vector(4096)",
+                nullable: false,
+                oldClrType: typeof(Vector),
+                oldType: "vector(1024)");
+
+            migrationBuilder.AlterColumn<int>(
+                name: "StreakCount",
+                table: "student_learning_objectives",
+                type: "integer",
+                nullable: false,
+                defaultValue: 1,
+                oldClrType: typeof(double),
+                oldType: "double precision",
+                oldPrecision: 18,
+                oldScale: 2,
+                oldDefaultValue: 1.0);
         }
     }
 }

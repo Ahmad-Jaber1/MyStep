@@ -250,6 +250,7 @@ public class StudentLearningObjectiveService : IStudentLearningObjectiveService
         {
             StudentId = entity.StudentId,
             LearningObjectiveId = entity.LearningObjectiveId,
+            StreakCount = entity.StreakCount,
             Score = entity.Score,
             LastUpdated = entity.LastUpdated
         };

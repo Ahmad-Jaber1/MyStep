@@ -98,6 +98,9 @@ public class TaskSubmissionEvaluationService : ITaskSubmissionEvaluationService
         var processedValidationResults = MapValidationResults(validationResult.Data.Validations, modelResponse.ValidationResults ?? []);
         var evaluationId = Guid.NewGuid();
         var evaluatedAt = DateTime.UtcNow;
+        var totalValidations = processedValidationResults.Count;
+        var passedValidations = processedValidationResults.Count(item => item.IsPass);
+        var passedRatio = totalValidations == 0 ? 0 : (double)passedValidations / totalValidations;
 
         await using var transaction = await _dbContext.Database.BeginTransactionAsync();
         try
@@ -111,9 +114,9 @@ public class TaskSubmissionEvaluationService : ITaskSubmissionEvaluationService
                 Reference = string.IsNullOrWhiteSpace(reference) ? null : reference.Trim(),
                 OverallSummary = modelResponse.OverallSummary?.Trim() ?? string.Empty,
                 RawModelResponseJson = rawModelJson,
-                ValidationCount = processedValidationResults.Count,
-                PassedValidationCount = processedValidationResults.Count(item => item.IsPass),
-                FailedValidationCount = processedValidationResults.Count(item => !item.IsPass),
+                ValidationCount = totalValidations,
+                PassedValidationCount = passedValidations,
+                FailedValidationCount = totalValidations - passedValidations,
                 CreatedAt = evaluatedAt
             };
 
@@ -138,6 +141,13 @@ public class TaskSubmissionEvaluationService : ITaskSubmissionEvaluationService
             foreach (var validation in processedValidationResults)
             {
                 await ApplyObjectiveOutcomeAsync(studentId, validation, evaluatedAt);
+            }
+
+            if (!studentTask.Passed && passedRatio >= 0.75)
+            {
+                studentTask.Passed = true;
+                studentTask.CompletedAt = evaluatedAt;
+                studentTask.Score = passedRatio * 100d;
             }
 
             await _dbContext.SaveChangesAsync();
