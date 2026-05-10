@@ -10,15 +10,18 @@ public class StudentTaskService : IStudentTaskService
     private readonly IStudentTaskRepo _studentTaskRepo;
     private readonly IStudentRepo _studentRepo;
     private readonly ITaskItemRepo _taskItemRepo;
+    private readonly ITaskSubmissionEvaluationRepo _evaluationRepo;
 
     public StudentTaskService(
         IStudentTaskRepo studentTaskRepo,
         IStudentRepo studentRepo,
-        ITaskItemRepo taskItemRepo)
+        ITaskItemRepo taskItemRepo,
+        ITaskSubmissionEvaluationRepo evaluationRepo)
     {
         _studentTaskRepo = studentTaskRepo;
         _studentRepo = studentRepo;
         _taskItemRepo = taskItemRepo;
+        _evaluationRepo = evaluationRepo;
     }
 
     public async Task<Result<StudentTaskResponseDto>> GetAsync(Guid studentId, Guid taskId)
@@ -40,6 +43,166 @@ public class StudentTaskService : IStudentTaskService
 
         var list = await _studentTaskRepo.GetByStudentAsync(studentId);
         return Result<List<StudentTaskResponseDto>>.Success(list.Select(MapToDto).ToList());
+    }
+
+    public async Task<Result<List<TaskHistorySummaryDto>>> GetByStudentAndSkillAsync(Guid studentId, int skillId)
+    {
+        if (studentId == Guid.Empty)
+            return Result<List<TaskHistorySummaryDto>>.Failure("Student id is required.");
+        if (skillId <= 0)
+            return Result<List<TaskHistorySummaryDto>>.Failure("Skill id must be greater than 0.");
+
+        var tasks = await _studentTaskRepo.GetByStudentAndSkillAsync(studentId, skillId);
+        var historyList = new List<TaskHistorySummaryDto>();
+
+        foreach (var task in tasks)
+        {
+            var evaluation = await _evaluationRepo.GetLatestByStudentAndTaskAsync(studentId, task.TaskId);
+            
+            // Extract task name from TaskData JSON
+            string taskName = "Unknown Task";
+            if (task.Task?.TaskData != null)
+            {
+                try
+                {
+                    var root = task.Task.TaskData.RootElement;
+                    if (root.TryGetProperty("task_name", out var nameElement))
+                    {
+                        taskName = nameElement.GetString() ?? "Unknown Task";
+                    }
+                }
+                catch
+                {
+                    taskName = "Unknown Task";
+                }
+            }
+
+            var summary = new TaskHistorySummaryDto
+            {
+                TaskId = task.TaskId,
+                TaskName = taskName,
+                NumberInSkill = task.NumberInMainSkill,
+                Passed = task.Passed,
+                CompletedAt = task.CompletedAt,
+                Score = task.Score,
+                PassedValidations = evaluation?.PassedValidationCount ?? 0,
+                TotalValidations = evaluation?.ValidationCount ?? 0
+            };
+
+            historyList.Add(summary);
+        }
+
+        return Result<List<TaskHistorySummaryDto>>.Success(historyList);
+    }
+
+    public async Task<Result<TaskDetailsResponseDto>> GetTaskDetailsAsync(Guid studentId, Guid taskId)
+    {
+        if (studentId == Guid.Empty || taskId == Guid.Empty)
+            return Result<TaskDetailsResponseDto>.Failure("Student id and task id are required.");
+
+        var studentTask = await _studentTaskRepo.GetAsync(studentId, taskId);
+        if (studentTask is null)
+            return Result<TaskDetailsResponseDto>.Failure("Student task was not found.");
+
+        var evaluation = await _evaluationRepo.GetLatestByStudentAndTaskAsync(studentId, taskId);
+
+        // Extract task name from TaskData JSON
+        string taskName = "Unknown Task";
+        if (studentTask.Task?.TaskData != null)
+        {
+            try
+            {
+                var root = studentTask.Task.TaskData.RootElement;
+                if (root.TryGetProperty("task_name", out var nameElement))
+                {
+                    taskName = nameElement.GetString() ?? "Unknown Task";
+                }
+            }
+            catch
+            {
+                taskName = "Unknown Task";
+            }
+        }
+
+        var details = new TaskDetailsResponseDto
+        {
+            TaskId = studentTask.TaskId,
+            TaskName = taskName,
+            NumberInSkill = studentTask.NumberInMainSkill,
+            Passed = studentTask.Passed,
+            StartedAt = studentTask.StartedAt,
+            CompletedAt = studentTask.CompletedAt,
+            Score = studentTask.Score,
+            RepositoryUrl = evaluation?.RepositoryUrl ?? string.Empty,
+            RepositoryRef = evaluation?.Reference,
+            EvaluatedAt = evaluation?.CreatedAt,
+            OverallSummary = evaluation?.OverallSummary ?? string.Empty
+        };
+
+        if (evaluation?.ValidationResults != null)
+        {
+            foreach (var validationResult in evaluation.ValidationResults)
+            {
+                details.ValidationResults.Add(new TaskValidationDetailDto
+                {
+                    ValidationId = validationResult.ValidationId,
+                    SkillId = validationResult.SkillId,
+                    ObjectiveId = validationResult.ObjectiveId,
+                    ValidationString = validationResult.ValidationString,
+                    IsPass = validationResult.IsPass,
+                    WhyNotPass = validationResult.WhyNotPass
+                });
+            }
+        }
+
+        // Try to parse additional feedback from raw JSON
+        if (!string.IsNullOrWhiteSpace(evaluation?.RawModelResponseJson))
+        {
+            try
+            {
+                using var jsonDoc = System.Text.Json.JsonDocument.Parse(evaluation.RawModelResponseJson);
+                var root = jsonDoc.RootElement;
+
+                if (root.TryGetProperty("studentGoodPoints", out var goodPointsElement))
+                {
+                    foreach (var point in goodPointsElement.EnumerateArray())
+                    {
+                        if (point.ValueKind == System.Text.Json.JsonValueKind.String)
+                        {
+                            details.StudentGoodPoints.Add(point.GetString() ?? string.Empty);
+                        }
+                    }
+                }
+
+                if (root.TryGetProperty("studentWeaknesses", out var weaknessesElement))
+                {
+                    foreach (var weakness in weaknessesElement.EnumerateArray())
+                    {
+                        if (weakness.ValueKind == System.Text.Json.JsonValueKind.String)
+                        {
+                            details.StudentWeaknesses.Add(weakness.GetString() ?? string.Empty);
+                        }
+                    }
+                }
+
+                if (root.TryGetProperty("topicsToRead", out var topicsElement))
+                {
+                    foreach (var topic in topicsElement.EnumerateArray())
+                    {
+                        if (topic.ValueKind == System.Text.Json.JsonValueKind.String)
+                        {
+                            details.TopicsToRead.Add(topic.GetString() ?? string.Empty);
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                // Silent fail if JSON parsing fails
+            }
+        }
+
+        return Result<TaskDetailsResponseDto>.Success(details);
     }
 
     public async Task<Result<StudentTaskResponseDto>> CreateAsync(CreateStudentTaskDto dto)

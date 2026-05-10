@@ -77,6 +77,20 @@ public class StudentTasksController : ControllerBase
         return ToActionResult(result);
     }
 
+    [HttpGet("by-student/{studentId:guid}/skill/{skillId:int}")]
+    public async Task<IActionResult> GetByStudentAndSkill(Guid studentId, int skillId)
+    {
+        var result = await _studentTaskService.GetByStudentAndSkillAsync(studentId, skillId);
+        return ToActionResult(result);
+    }
+
+    [HttpGet("{studentId:guid}/{taskId:guid}/details")]
+    public async Task<IActionResult> GetTaskDetails(Guid studentId, Guid taskId)
+    {
+        var result = await _studentTaskService.GetTaskDetailsAsync(studentId, taskId);
+        return ToActionResult(result);
+    }
+
     private IActionResult ToActionResult<T>(Result<T> result)
     {
         if (result.IsSuccess) return Ok(result.Data);

@@ -1,0 +1,54 @@
+@baseUrl = http://68.221.175.88:5000/api
+
+# Change these if needed
+@email = task.history.test@example.com
+@password = StrongPass123!
+@fullName = Task History Test Student
+@mainSkillId = 1
+
+###
+# 1) Create account
+# @name signup_test
+POST {{baseUrl}}/auth/signup
+Content-Type: application/json
+
+{
+  "fullName": "{{fullName}}",
+  "email": "{{email}}",
+  "password": "{{password}}"
+}
+
+###
+# 2) Sign in
+# @name signin_test
+POST {{baseUrl}}/auth/signin
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}"
+}
+
+###
+# Capture auth values
+@token = {{signin_test.response.body.$.token}}
+@studentId = {{signin_test.response.body.$.student.id}}
+
+###
+# 3) Verify current student
+GET {{baseUrl}}/auth/me
+Authorization: Bearer {{token}}
+
+###
+# 4) Test task history endpoint - should return empty list initially
+# This calls: GET /api/studenttasks/by-student/{studentId}/skill/{skillId}
+GET {{baseUrl}}/studenttasks/by-student/{{studentId}}/skill/{{mainSkillId}}
+Authorization: Bearer {{token}}
+
+###
+# NOTE: To see actual task history, you need to:
+# 1. Select a path (PUT /api/auth/selected-path)
+# 2. Complete welcome assessment (POST /api/auth/welcome-assessment)
+# 3. Generate a task (POST /api/task-generation/generate)
+# 4. Evaluate submission (POST /api/StudentTasks/{studentId}/{taskId}/evaluate)
+# 5. Then call task history endpoint above again to see the completed task

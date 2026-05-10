@@ -33,6 +33,15 @@ public class StudentTaskRepo : IStudentTaskRepo
             .ToListAsync();
     }
 
+    public async Task<List<StudentTask>> GetByStudentAndSkillAsync(Guid studentId, int skillId)
+    {
+        return await _context.StudentTasks
+            .Where(st => st.StudentId == studentId && st.Task.MainSkillId == skillId)
+            .Include(st => st.Task)
+            .OrderByDescending(st => st.CompletedAt)
+            .ToListAsync();
+    }
+
     public async Task<int> GetCountByStudentAndMainSkillAsync(Guid studentId, int mainSkillId)
     {
         return await _context.StudentTasks

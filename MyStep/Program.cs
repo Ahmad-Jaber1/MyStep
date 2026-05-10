@@ -52,6 +52,7 @@ public class Program
         builder.Services.AddScoped<IStudentRepo, StudentRepo>();
         builder.Services.AddScoped<IStudentLearningObjectiveRepo, StudentLearningObjectiveRepo>();
         builder.Services.AddScoped<IStudentTaskRepo, StudentTaskRepo>();
+        builder.Services.AddScoped<ITaskSubmissionEvaluationRepo, TaskSubmissionEvaluationRepo>();
         builder.Services.AddScoped<IPathItemService, PathItemService>();
         builder.Services.AddScoped<ISkillService, SkillService>();
         builder.Services.AddScoped<ILearningObjectiveService, LearningObjectiveService>();

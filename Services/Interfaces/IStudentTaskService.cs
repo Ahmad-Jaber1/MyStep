@@ -7,6 +7,8 @@ public interface IStudentTaskService
 {
     Task<Result<StudentTaskResponseDto>> GetAsync(Guid studentId, Guid taskId);
     Task<Result<List<StudentTaskResponseDto>>> GetByStudentAsync(Guid studentId);
+    Task<Result<List<TaskHistorySummaryDto>>> GetByStudentAndSkillAsync(Guid studentId, int skillId);
+    Task<Result<TaskDetailsResponseDto>> GetTaskDetailsAsync(Guid studentId, Guid taskId);
     Task<Result<StudentTaskResponseDto>> CreateAsync(CreateStudentTaskDto dto);
     Task<Result<StudentTaskResponseDto>> UpdateAsync(Guid studentId, Guid taskId, UpdateStudentTaskDto dto);
     Task<Result<StudentTaskResponseDto>> MarkAsPassedAsync(Guid studentId, Guid taskId, double? score = null);

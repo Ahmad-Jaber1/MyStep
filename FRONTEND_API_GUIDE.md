@@ -9,6 +9,8 @@ This document is for the frontend team. It only includes the APIs needed for the
 - choose a path
 - complete the one-time welcome assessment
 - check whether the welcome assessment is still required
+- generate a programming task
+- evaluate a student's task submission
 
 ## General Rules
 
@@ -114,7 +116,88 @@ Important notes:
 - The model output may include objective IDs that do not belong to the current student unless the backend has already constrained them in the prompt; the backend is responsible for enforcing the allowed target and prerequisite lists.
 - If the frontend needs to regenerate a task, call the same endpoint again with the same `studentId` and `mainSkillId`.
 
-### 8) Mark Task As Passed
+## Task Submission Evaluation API
+
+This flow is protected and should be called after the student has generated and completed a task.
+
+### 8) Evaluate Task Submission
+
+`POST /api/studenttasks/{studentId}/{taskId}/evaluate`
+
+Use this when the frontend wants the backend to inspect a student's submitted repository and return a structured evaluation.
+
+Headers:
+```http
+Authorization: Bearer <token>
+Content-Type: application/json
+```
+
+Path parameters:
+- `studentId`: guid, required
+- `taskId`: guid, required
+
+Request body:
+```json
+{
+  "repositoryUrl": "https://github.com/example/student-submission",
+  "ref": "main"
+}
+```
+
+Request DTO:
+- `repositoryUrl`: string, required
+- `ref`: string, optional
+
+Success response: `TaskSubmissionEvaluationResponseDto`
+```json
+{
+  "evaluationId": "0f8b5e8a-4a1d-4d8d-9b55-9a3f4f0b7b8a",
+  "studentId": "d546ab00-024d-42b4-837c-9d42da4fa281",
+  "taskId": "f6f3b2a6-0df6-4b6b-8f4d-7d4a2b5f4c1a",
+  "evaluatedAt": "2026-04-29T15:20:00Z",
+  "overallSummary": "The solution is mostly correct, but the middleware is not registered in the pipeline.",
+  "validationResults": [
+    {
+      "validationId": 1,
+      "skillId": 4,
+      "objectiveId": 48,
+      "validationString": "A custom middleware class is implemented and registered in the application pipeline.",
+      "isPass": false,
+      "whyNotPass": "The middleware class exists, but it is never added to the request pipeline."
+    }
+  ],
+  "studentGoodPoints": [
+    "The controller endpoint follows attribute routing.",
+    "The project structure is clean and easy to navigate."
+  ],
+  "studentWeaknesses": [
+    "Pipeline registration is missing for the middleware."
+  ],
+  "topicsToRead": [
+    "ASP.NET Core middleware registration",
+    "Request pipeline ordering"
+  ]
+}
+```
+
+Response fields:
+- `evaluationId`: guid
+- `studentId`: guid
+- `taskId`: guid
+- `evaluatedAt`: datetime
+- `overallSummary`: string
+- `validationResults`: list of per-criterion results
+- `studentGoodPoints`: list of strings
+- `studentWeaknesses`: list of strings
+- `topicsToRead`: list of strings
+
+Important notes:
+- `repositoryUrl` is required in the request body.
+- `ref` is optional and can be used to evaluate a branch, tag, or commit.
+- The backend flattens the repository code internally before sending it to the model.
+- The evaluation endpoint may also mark the related student task as passed when the validation pass ratio is high enough.
+
+### 9) Mark Task As Passed
 
 `POST /api/StudentTasks/{studentId}/{taskId}/mark-passed`
 
@@ -159,6 +242,156 @@ Response fields:
 - `startedAt`: datetime or null
 - `completedAt`: datetime or null
 - `score`: number or null
+
+### 10) Get Task History by Skill
+
+`GET /api/studenttasks/by-student/{studentId}/skill/{skillId}`
+
+Use this to load the history of tasks completed for a specific skill. Useful for showing the student their progress within a skill.
+
+Headers:
+```http
+Authorization: Bearer <token>
+```
+
+Path parameters:
+- `studentId`: guid, required
+- `skillId`: integer, required
+
+Success response: array of `TaskHistorySummaryDto`
+```json
+[
+  {
+    "taskId": "f6f3b2a6-0df6-4b6b-8f4d-7d4a2b5f4c1a",
+    "taskName": "Request Audit Middleware with Header Injection",
+    "numberInSkill": 1,
+    "passed": true,
+    "completedAt": "2026-04-29T15:10:00Z",
+    "score": 85,
+    "passedValidations": 3,
+    "totalValidations": 4
+  },
+  {
+    "taskId": "a1b2c3d4-e5f6-4a5b-9c8d-1e2f3a4b5c6d",
+    "taskName": "Dependency Injection in ASP.NET Core",
+    "numberInSkill": 2,
+    "passed": false,
+    "completedAt": null,
+    "score": null,
+    "passedValidations": 0,
+    "totalValidations": 0
+  }
+]
+```
+
+Response fields for each object:
+- `taskId`: guid
+- `taskName`: string (name of the task)
+- `numberInSkill`: integer (which number task this is for the skill, 1-based)
+- `passed`: boolean
+- `completedAt`: datetime or null
+- `score`: number or null (calculated from validations: passed validations / total validations * 100)
+- `passedValidations`: integer (number of validation criteria passed in the latest evaluation)
+- `totalValidations`: integer (total number of validation criteria for this task)
+
+Important notes:
+- Tasks are returned in reverse chronological order (most recent first).
+- If no evaluation exists for a task yet, `passedValidations` and `totalValidations` will be 0.
+- The `score` field represents the percentage of validation criteria passed (0-100).
+
+### 11) Get Task Details
+
+`GET /api/studenttasks/{studentId}/{taskId}/details`
+
+Use this to view the full details of a specific task, including validation results and feedback. Useful for showing a student their task submission results.
+
+Headers:
+```http
+Authorization: Bearer <token>
+```
+
+Path parameters:
+- `studentId`: guid, required
+- `taskId`: guid, required
+
+Success response: `TaskDetailsResponseDto`
+```json
+{
+  "taskId": "f6f3b2a6-0df6-4b6b-8f4d-7d4a2b5f4c1a",
+  "taskName": "Request Audit Middleware with Header Injection and Attribute Routing",
+  "numberInSkill": 1,
+  "passed": true,
+  "startedAt": "2026-04-29T15:00:00Z",
+  "completedAt": "2026-04-29T15:10:00Z",
+  "score": 85,
+  "repositoryUrl": "https://github.com/example/student-submission",
+  "repositoryRef": "main",
+  "evaluatedAt": "2026-04-29T15:20:00Z",
+  "overallSummary": "The solution is mostly correct, but the middleware is not registered in the pipeline.",
+  "validationResults": [
+    {
+      "validationId": 1,
+      "skillId": 4,
+      "objectiveId": 48,
+      "validationString": "A custom middleware class is implemented and registered in the application pipeline.",
+      "isPass": false,
+      "whyNotPass": "The middleware class exists, but it is never added to the request pipeline."
+    },
+    {
+      "validationId": 2,
+      "skillId": 4,
+      "objectiveId": 50,
+      "validationString": "The middleware correctly processes HTTP requests and responses.",
+      "isPass": true,
+      "whyNotPass": ""
+    }
+  ],
+  "studentGoodPoints": [
+    "The controller endpoint follows attribute routing.",
+    "The project structure is clean and easy to navigate.",
+    "Error handling is implemented in the middleware."
+  ],
+  "studentWeaknesses": [
+    "Pipeline registration is missing for the middleware.",
+    "Some edge cases are not handled."
+  ],
+  "topicsToRead": [
+    "ASP.NET Core middleware registration",
+    "Request pipeline ordering",
+    "Error handling in middleware"
+  ]
+}
+```
+
+Response fields:
+- `taskId`: guid
+- `taskName`: string
+- `numberInSkill`: integer
+- `passed`: boolean
+- `startedAt`: datetime or null
+- `completedAt`: datetime or null
+- `score`: number or null
+- `repositoryUrl`: string (the GitHub repository URL that was evaluated)
+- `repositoryRef`: string or null (the branch/tag/commit that was evaluated)
+- `evaluatedAt`: datetime or null (when the evaluation was performed)
+- `overallSummary`: string (high-level feedback on the submission)
+- `validationResults`: array of validation detail objects
+  - `validationId`: integer
+  - `skillId`: integer
+  - `objectiveId`: integer (0 if not tied to a specific learning objective)
+  - `validationString`: string (the validation criterion)
+  - `isPass`: boolean
+  - `whyNotPass`: string (reason for failure, empty if passed)
+- `studentGoodPoints`: array of strings (things the student did well)
+- `studentWeaknesses`: array of strings (areas for improvement)
+- `topicsToRead`: array of strings (recommended reading/learning topics)
+
+Important notes:
+- If no evaluation exists for this task yet, most fields will be empty/null and `validationResults` will be an empty array.
+- The `score` field is the percentage of validation criteria that passed.
+- `overallSummary` provides high-level feedback about the submission.
+- `validationResults` shows detailed information about each validation criterion and whether it passed.
+- Feedback fields (`studentGoodPoints`, `studentWeaknesses`, `topicsToRead`) are extracted from the latest evaluation and provide personalized feedback to the student.
 
 ## Auth APIs
 
