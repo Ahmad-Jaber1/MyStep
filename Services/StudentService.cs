@@ -426,7 +426,8 @@ public class StudentService : IStudentService
         {
             new(ClaimTypes.NameIdentifier, student.Id.ToString()),
             new(ClaimTypes.Name, student.FullName),
-            new(ClaimTypes.Email, student.Email)
+            new(ClaimTypes.Email, student.Email),
+            new(ClaimTypes.Role, "Student")
         };
 
         var token = new JwtSecurityToken(

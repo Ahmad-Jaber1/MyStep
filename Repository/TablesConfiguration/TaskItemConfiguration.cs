@@ -22,7 +22,11 @@ namespace Repository.TablesConfiguration
                 .HasColumnType("jsonb");
 
             builder.Property(t => t.SearchVector)
-                .HasColumnType("vector(1024)"); 
+                .HasColumnType("vector(1024)");
+
+            builder.Property(t => t.SupervisorEdited)
+                .HasDefaultValue(false)
+                .IsRequired();
 
             
             builder.HasOne(t => t.Path)

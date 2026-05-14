@@ -51,6 +51,9 @@ public class Program
         builder.Services.AddScoped<ITaskTargetRepo, TaskTargetRepo>();
         builder.Services.AddScoped<IStudentRepo, StudentRepo>();
         builder.Services.AddScoped<IStudentLearningObjectiveRepo, StudentLearningObjectiveRepo>();
+            builder.Services.AddScoped<ISupervisorRepo, SupervisorRepo>();
+        builder.Services.AddScoped<ISupervisorStudentRepo, SupervisorStudentRepo>();
+        builder.Services.AddScoped<ITaskGenerationRequestRepo, TaskGenerationRequestRepo>();
         builder.Services.AddScoped<IStudentTaskRepo, StudentTaskRepo>();
         builder.Services.AddScoped<ITaskSubmissionEvaluationRepo, TaskSubmissionEvaluationRepo>();
         builder.Services.AddScoped<IPathItemService, PathItemService>();
@@ -62,6 +65,10 @@ public class Program
         builder.Services.AddScoped<ITaskSearchVectorService, TaskSearchVectorService>();
         builder.Services.AddScoped<IStudentService, StudentService>();
         builder.Services.AddScoped<IStudentTaskService, StudentTaskService>();
+            builder.Services.AddScoped<ISupervisorAuthService, SupervisorAuthService>();
+        builder.Services.AddScoped<ISupervisorService, SupervisorService>();
+        builder.Services.AddScoped<ITaskGenerationRequestService, TaskGenerationRequestService>();
+        builder.Services.AddScoped<ITaskEditService, TaskEditService>();
         builder.Services.AddScoped<ITaskSubmissionEvaluationService, TaskSubmissionEvaluationService>();
         builder.Services.AddScoped<IStudentLearningObjectiveService, StudentLearningObjectiveService>();
 

@@ -22,6 +22,9 @@ namespace Repository
         public DbSet<TaskTarget> TaskTargets => Set<TaskTarget>();
         public DbSet<TaskPrerequisite> TaskPrerequisites => Set<TaskPrerequisite>();
         public DbSet<Student> Students => Set<Student>();
+        public DbSet<Supervisor> Supervisors => Set<Supervisor>();
+        public DbSet<SupervisorStudent> SupervisorStudents => Set<SupervisorStudent>();
+        public DbSet<TaskGenerationRequest> TaskGenerationRequests => Set<TaskGenerationRequest>();
         public DbSet<StudentLearningObjective> StudentLearningObjectives => Set<StudentLearningObjective>();
         public DbSet<StudentTask> StudentTasks => Set<StudentTask>();
         public DbSet<TaskSubmissionEvaluation> TaskSubmissionEvaluations => Set<TaskSubmissionEvaluation>();

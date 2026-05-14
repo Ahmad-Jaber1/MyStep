@@ -37,6 +37,7 @@ namespace Services.DTOs
         public bool Passed { get; set; }
         public DateTime? CompletedAt { get; set; }
         public double? Score { get; set; }
+        public string? RepositoryUrl { get; set; }
         // Score calculation: (passed validations / total validations) * 100
         public int PassedValidations { get; set; }
         public int TotalValidations { get; set; }

@@ -21,6 +21,8 @@ namespace Models
 
         public double? Score { get; set; }
 
+        public string? LastSubmittedRepositoryUrl { get; set; }
+
         // Navigation
         public Student Student { get; set; } = null!;
 

@@ -189,6 +189,55 @@ public class TaskSearchVectorService : ITaskSearchVectorService
         return Result<GenerateTaskResponseDto>.Failure("Task generation failed: could not generate valid task after multiple attempts.");
     }
 
+    /// <summary>
+    /// Generate a preview of the task for supervisor review without persisting it.
+    /// </summary>
+    public async Task<Result<GenerateTaskResponseDto>> GeneratePreviewAsync(Guid studentId, int mainSkillId)
+    {
+        var contextResult = await BuildGenerationContextAsync(studentId, mainSkillId);
+        if (!contextResult.IsSuccess || contextResult.Data is null)
+        {
+            return Result<GenerateTaskResponseDto>.Failure(contextResult.ErrorMessage ?? "Task generation preparation failed.");
+        }
+
+        var generationResult = await _generationClient.GenerateContentAsync(contextResult.Data.Preparation.GenerationPrompt);
+        if (!generationResult.IsSuccess)
+        {
+            return Result<GenerateTaskResponseDto>.Failure(generationResult.ErrorMessage ?? "Task generation failed.");
+        }
+
+        if (!TryParseGeneratedTask(generationResult.Data!, out var generatedTask, out var generatedPayload, out var parseError))
+        {
+            return Result<GenerateTaskResponseDto>.Failure(parseError);
+        }
+
+        // Return the generated task as a preview (no persistence)
+        return Result<GenerateTaskResponseDto>.Success(new GenerateTaskResponseDto
+        {
+            TaskId = Guid.Empty,
+            TaskData = generatedTask
+        });
+    }
+
+    /// <summary>
+    /// Persist a previously-generated task JSON content for the given student and main skill.
+    /// </summary>
+    public async Task<Result<Guid>> PersistGeneratedTaskFromContentAsync(Guid studentId, int mainSkillId, string generatedContent)
+    {
+        var contextResult = await BuildGenerationContextAsync(studentId, mainSkillId);
+        if (!contextResult.IsSuccess || contextResult.Data is null)
+        {
+            return Result<Guid>.Failure(contextResult.ErrorMessage ?? "Task generation preparation failed.");
+        }
+
+        if (!TryParseGeneratedTask(generatedContent, out var generatedTask, out var parsedPayload, out var parseError))
+        {
+            return Result<Guid>.Failure(parseError);
+        }
+
+        return await PersistGeneratedTaskAsync(studentId, mainSkillId, contextResult.Data, generatedTask, parsedPayload!);
+    }
+
     private static bool IsValidationError(string? errorMessage)
     {
         return !string.IsNullOrWhiteSpace(errorMessage) &&

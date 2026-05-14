@@ -3,6 +3,7 @@ using System;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Pgvector;
@@ -13,9 +14,11 @@ using Repository;
 namespace Repository.Migrations
 {
     [DbContext(typeof(MyStepDbContext))]
-    partial class MyStepDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260512202337_AddSupervisorEditedFlagToTaskItem")]
+    partial class AddSupervisorEditedFlagToTaskItem
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -173,9 +176,6 @@ namespace Repository.Migrations
                     b.Property<DateTime?>("CompletedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<string>("LastSubmittedRepositoryUrl")
-                        .HasColumnType("text");
-
                     b.Property<int>("NumberInMainSkill")
                         .HasColumnType("integer");
 
@@ -261,56 +261,10 @@ namespace Repository.Migrations
                     b.ToTable("supervisor_students", (string)null);
                 });
 
-            modelBuilder.Entity("Models.TaskGenerationRequest", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<int>("MainSkillId")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("PathId")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("Status")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasDefaultValue(0);
-
-                    b.Property<Guid>("StudentId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("SupervisorId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("PathId");
-
-                    b.HasIndex("StudentId");
-
-                    b.HasIndex("SupervisorId");
-
-                    b.ToTable("task_generation_requests", (string)null);
-                });
-
             modelBuilder.Entity("Models.TaskItem", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime?>("EditedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid?>("EditedBySupervisorId")
                         .HasColumnType("uuid");
 
                     b.Property<int>("MainSkillId")
@@ -565,33 +519,6 @@ namespace Repository.Migrations
 
                     b.HasOne("Models.Supervisor", "Supervisor")
                         .WithMany("SupervisorStudents")
-                        .HasForeignKey("SupervisorId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Path");
-
-                    b.Navigation("Student");
-
-                    b.Navigation("Supervisor");
-                });
-
-            modelBuilder.Entity("Models.TaskGenerationRequest", b =>
-                {
-                    b.HasOne("Models.PathItem", "Path")
-                        .WithMany()
-                        .HasForeignKey("PathId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Models.Student", "Student")
-                        .WithMany()
-                        .HasForeignKey("StudentId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Models.Supervisor", "Supervisor")
-                        .WithMany()
                         .HasForeignKey("SupervisorId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();

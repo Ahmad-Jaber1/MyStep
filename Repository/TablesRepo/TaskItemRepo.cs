@@ -64,6 +64,7 @@ public class TaskItemRepo : ITaskItemRepo
                 SELECT *
                 FROM tasks
                 WHERE ""MainSkillId"" = {mainSkillId}
+                  AND ""SupervisorEdited"" = FALSE
                   AND ""SearchVector"" IS NOT NULL
                 ORDER BY ""SearchVector"" <=> {queryVector}
                 LIMIT {topK}")

@@ -1,16 +1,34 @@
 @baseUrl = http://68.221.175.88:5000
-# Frontend API Guide
+# MyStep Frontend API Guide
 
-This document is for the frontend team. It only includes the APIs needed for the current flow:
+This comprehensive document covers all APIs needed for both **Student** and **Supervisor** frontends.
 
-- student sign up
-- student sign in
+## API Overview
+
+The platform has two main user types with separate authentication flows:
+- **Students**: Sign up, browse paths, choose a path, complete welcome assessment, generate tasks, submit work
+- **Supervisors**: Sign up, add students, generate tasks for students, edit tasks, view student history
+
+### Flows Covered
+
+**Student Flows:**
+- student sign up / sign in
 - browse paths, skills, and learning objectives
 - choose a path
 - complete the one-time welcome assessment
 - check whether the welcome assessment is still required
+- handle supervisor requests (approve/reject)
 - generate a programming task
 - evaluate a student's task submission
+- view task history and detailed feedback
+
+**Supervisor Flows:**
+- supervisor sign up / sign in
+- add students to supervise
+- approve/generate tasks for students
+- edit tasks (objectives, prerequisites, validations)
+- view student task history
+- review student submissions and feedback
 
 ## General Rules
 
@@ -21,29 +39,528 @@ This document is for the frontend team. It only includes the APIs needed for the
 - Create endpoints return `201 Created` when successful.
 - On validation errors, backend usually returns `400 Bad Request` with a plain error message.
 - If a resource is missing, backend usually returns `404 Not Found` with a plain error message.
+- Certain endpoints like task generation with supervisors may return `202 Accepted` to indicate async processing.
 
-## Important Frontend Flow
+## Authentication APIs
 
-1. Student signs up.
-2. Student signs in.
-3. Frontend checks `requiresWelcomeAssessment` from sign-in response, or calls `GET /api/auth/me`.
-4. Student chooses a path.
-5. Frontend loads skills for that path, then learning objectives for each skill.
-6. Frontend shows the welcome form, split into pages by skill.
-7. Student rates each learning objective from `0` to `4`.
-8. Frontend submits all ratings once.
-9. Backend marks welcome assessment as completed, so it will not appear again for that student.
+### 1) Student Sign Up
 
-## Task Generation API
+`POST /api/auth/signup`
 
-This flow is protected and should be called only after the student logs in.
-The frontend only needs the generate endpoint. The prepare endpoint is an internal backend step and is not needed by the UI.
+Use this when a new student creates an account.
 
-### 7) Generate Task
+Request body:
+```json
+{
+  "fullName": "Sara Ali",
+  "email": "sara@example.com",
+  "password": "StrongPass123"
+}
+```
+
+Request DTO:
+- `fullName`: string, required
+- `email`: string, required
+- `password`: string, required
+
+Success response: `StudentResponseDto`
+```json
+{
+  "id": "b8df4e5a-8e2d-4d2d-9f8c-1dc7b1e4f111",
+  "fullName": "Sara Ali",
+  "email": "sara@example.com",
+  "selectedPathId": null,
+  "requiresWelcomeAssessment": true,
+  "createdAt": "2026-04-18T10:20:30Z"
+}
+```
+
+Response fields:
+- `id`: guid
+- `fullName`: string
+- `email`: string
+- `selectedPathId`: integer or null
+- `requiresWelcomeAssessment`: boolean
+- `createdAt`: datetime
+
+### 2) Student Sign In
+
+`POST /api/auth/signin`
+
+Use this after the student logs in.
+
+Request body:
+```json
+{
+  "email": "sara@example.com",
+  "password": "StrongPass123"
+}
+```
+
+Request DTO:
+- `email`: string, required
+- `password`: string, required
+
+Success response: `AuthResponseDto`
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiIs...",
+  "expiresAtUtc": "2026-04-18T12:20:30Z",
+  "student": {
+    "id": "b8df4e5a-8e2d-4d2d-9f8c-1dc7b1e4f111",
+    "fullName": "Sara Ali",
+    "email": "sara@example.com",
+    "selectedPathId": null,
+    "requiresWelcomeAssessment": true,
+    "createdAt": "2026-04-18T10:20:30Z"
+  }
+}
+```
+
+Response fields:
+- `token`: JWT token for protected requests
+- `expiresAtUtc`: datetime
+- `student`: `StudentResponseDto`
+
+### 3) Current Student
+
+`GET /api/auth/me`
+
+Use this if the frontend wants to refresh the logged-in student state.
+
+Headers:
+```http
+Authorization: Bearer <token>
+```
+
+Success response: `CurrentStudentDto`
+```json
+{
+  "id": "b8df4e5a-8e2d-4d2d-9f8c-1dc7b1e4f111",
+  "fullName": "Sara Ali",
+  "email": "sara@example.com",
+  "requiresWelcomeAssessment": true
+}
+```
+
+Response fields:
+- `id`: guid
+- `fullName`: string
+- `email`: string
+- `requiresWelcomeAssessment`: boolean
+
+### 4) Student Sign Out
+
+`POST /api/auth/signout`
+
+Use this when a student logs out.
+
+Headers:
+```http
+Authorization: Bearer <token>
+```
+
+Success response:
+```json
+{
+  "success": true
+}
+```
+
+### 5) Supervisor Sign Up
+
+`POST /api/auth/supervisor-signup`
+
+Use this when a new supervisor creates an account. Supervisors supervise a specific learning path.
+
+Request body:
+```json
+{
+  "fullName": "Dr. Johnson",
+  "email": "johnson@example.com",
+  "password": "StrongPass123",
+  "pathId": 2
+}
+```
+
+Request DTO:
+- `fullName`: string, required
+- `email`: string, required
+- `password`: string, required
+- `pathId`: integer, required
+
+Success response: `SupervisorResponseDto`
+```json
+{
+  "id": "c3d4e5f6-a7b8-4c9d-0e1f-2a3b4c5d6e7f",
+  "fullName": "Dr. Johnson",
+  "email": "johnson@example.com",
+  "pathId": 2,
+  "createdAt": "2026-04-18T10:20:30Z"
+}
+```
+
+Response fields:
+- `id`: guid
+- `fullName`: string
+- `email`: string
+- `pathId`: integer (the path this supervisor is responsible for)
+- `createdAt`: datetime
+
+### 6) Supervisor Sign In
+
+`POST /api/auth/supervisor-signin`
+
+Use this after a supervisor logs in.
+
+Request body:
+```json
+{
+  "email": "johnson@example.com",
+  "password": "StrongPass123"
+}
+```
+
+Request DTO:
+- `email`: string, required
+- `password`: string, required
+
+Success response: `AuthResponseDto`
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiIs...",
+  "expiresAtUtc": "2026-04-18T12:20:30Z",
+  "supervisor": {
+    "id": "c3d4e5f6-a7b8-4c9d-0e1f-2a3b4c5d6e7f",
+    "fullName": "Dr. Johnson",
+    "email": "johnson@example.com",
+    "pathId": 2,
+    "createdAt": "2026-04-18T10:20:30Z"
+  }
+}
+```
+
+Response fields:
+- `token`: JWT token for protected requests
+- `expiresAtUtc`: datetime
+- `supervisor`: `SupervisorResponseDto`
+
+### 7) Current Supervisor
+
+`GET /api/auth/supervisor-me`
+
+Use this to get the currently logged-in supervisor's profile.
+
+Headers:
+```http
+Authorization: Bearer <token>
+```
+
+Success response: `SupervisorResponseDto`
+```json
+{
+  "id": "c3d4e5f6-a7b8-4c9d-0e1f-2a3b4c5d6e7f",
+  "fullName": "Dr. Johnson",
+  "email": "johnson@example.com",
+  "pathId": 2,
+  "createdAt": "2026-04-18T10:20:30Z"
+}
+```
+
+Response fields:
+- `id`: guid
+- `fullName`: string
+- `email`: string
+- `pathId`: integer
+- `createdAt`: datetime
+
+## Paths, Skills, and Learning Objectives APIs
+
+These endpoints allow both students and supervisors to browse available paths, skills, and learning objectives. All are open (no authorization required).
+
+### Get All Paths
+
+`GET /api/paths`
+
+Retrieve all available learning paths.
+
+Success response: array of `PathResponseDto`
+```json
+[
+  {
+    "id": 1,
+    "name": "ASP.NET Core Backend Development",
+    "description": "Learn to build robust backend APIs with ASP.NET Core"
+  },
+  {
+    "id": 2,
+    "name": "Cloud Architecture",
+    "description": "Design and implement scalable cloud solutions"
+  }
+]
+```
+
+Response fields for each object:
+- `id`: integer
+- `name`: string
+- `description`: string
+
+### Get Path by ID
+
+`GET /api/paths/{id}`
+
+Retrieve a specific learning path.
+
+Path parameters:
+- `id`: integer, required
+
+Success response: `PathResponseDto`
+```json
+{
+  "id": 1,
+  "name": "ASP.NET Core Backend Development",
+  "description": "Learn to build robust backend APIs with ASP.NET Core"
+}
+```
+
+### Get Skills by Path
+
+`GET /api/skills/by-path/{pathId}`
+
+Retrieve all skills associated with a learning path.
+
+Path parameters:
+- `pathId`: integer, required
+
+Success response: array of `SkillResponseDto`
+```json
+[
+  {
+    "id": 1,
+    "name": "Basic C# Programming",
+    "description": "Fundamentals of C# language and syntax"
+  },
+  {
+    "id": 4,
+    "name": "ASP.NET Core Middleware",
+    "description": "Understanding middleware pipeline and custom middleware"
+  }
+]
+```
+
+Response fields for each object:
+- `id`: integer
+- `name`: string
+- `description`: string
+
+### Get Learning Objectives by Skill
+
+`GET /api/learningobjectives/by-skill/{skillId}`
+
+Retrieve all learning objectives for a specific skill. Use this to populate the welcome assessment form or to show objective details.
+
+Path parameters:
+- `skillId`: integer, required
+
+Success response: array of `LearningObjectiveResponseDto`
+```json
+[
+  {
+    "id": 48,
+    "skillId": 4,
+    "name": "Implement Custom Middleware",
+    "description": "Write and register custom middleware in ASP.NET Core pipeline"
+  },
+  {
+    "id": 50,
+    "skillId": 4,
+    "name": "Middleware Error Handling",
+    "description": "Handle errors and exceptions in middleware"
+  }
+]
+```
+
+Response fields for each object:
+- `id`: integer
+- `skillId`: integer
+- `name`: string
+- `description`: string
+
+## Student-Specific APIs
+
+### Choose Path
+
+`PUT /api/students/{id}`
+
+Update a student's selected path. After sign-up, students must choose a path before task generation is available.
+
+Headers:
+```http
+Authorization: Bearer <token>
+```
+
+Path parameters:
+- `id`: guid, required (student ID)
+
+Request body:
+```json
+{
+  "selectedPathId": 1
+}
+```
+
+Request DTO:
+- `selectedPathId`: integer, required
+
+Success response: `StudentResponseDto`
+```json
+{
+  "id": "b8df4e5a-8e2d-4d2d-9f8c-1dc7b1e4f111",
+  "fullName": "Sara Ali",
+  "email": "sara@example.com",
+  "selectedPathId": 1,
+  "requiresWelcomeAssessment": true,
+  "createdAt": "2026-04-18T10:20:30Z"
+}
+```
+
+### Submit Welcome Assessment
+
+`POST /api/auth/welcome-assessment`
+
+Submit the student's initial learning objective ratings. This completes the welcome assessment and allows task generation to begin.
+
+Headers:
+```http
+Authorization: Bearer <token>
+Content-Type: application/json
+```
+
+Request body:
+```json
+{
+  "ratings": [
+    {
+      "learningObjectiveId": 48,
+      "rating": 2
+    },
+    {
+      "learningObjectiveId": 50,
+      "rating": 1
+    }
+  ]
+}
+```
+
+Request DTO:
+- `ratings`: array of rating objects, required
+  - `learningObjectiveId`: integer, required
+  - `rating`: number (0-4), required
+
+Success response: `WelcomeAssessmentResponseDto`
+```json
+{
+  "success": true,
+  "message": "Welcome assessment completed successfully"
+}
+```
+
+### Get Student's Supervisor Requests
+
+`GET /api/auth/supervisor-requests`
+
+Retrieve pending supervisor requests for the currently logged-in student. Students see this list to approve or reject supervisor invitations.
+
+Headers:
+```http
+Authorization: Bearer <token>
+```
+
+Success response: array of `SupervisorRequestDto`
+```json
+[
+  {
+    "supervisorId": "c3d4e5f6-a7b8-4c9d-0e1f-2a3b4c5d6e7f",
+    "supervisorName": "Dr. Johnson",
+    "pathId": 1,
+    "pathName": "ASP.NET Core Backend Development",
+    "status": "Pending",
+    "createdAt": "2026-04-20T10:00:00Z"
+  }
+]
+```
+
+Response fields for each object:
+- `supervisorId`: guid
+- `supervisorName`: string
+- `pathId`: integer
+- `pathName`: string
+- `status`: string (Pending, Approved, or Rejected)
+- `createdAt`: datetime
+
+### Approve Supervisor Request
+
+`POST /api/auth/supervisor-requests/{supervisorId}/{pathId}/approve`
+
+Student approves a pending supervisor request. After approval, the supervisor can generate tasks for this student on this path.
+
+Headers:
+```http
+Authorization: Bearer <token>
+```
+
+Path parameters:
+- `supervisorId`: guid, required
+- `pathId`: integer, required
+
+Success response: `SupervisorRequestDto`
+```json
+{
+  "supervisorId": "c3d4e5f6-a7b8-4c9d-0e1f-2a3b4c5d6e7f",
+  "supervisorName": "Dr. Johnson",
+  "pathId": 1,
+  "pathName": "ASP.NET Core Backend Development",
+  "status": "Approved",
+  "approvedAt": "2026-04-20T10:05:00Z"
+}
+```
+
+### Reject Supervisor Request
+
+`POST /api/auth/supervisor-requests/{supervisorId}/{pathId}/reject`
+
+Student rejects a pending supervisor request.
+
+Headers:
+```http
+Authorization: Bearer <token>
+```
+
+Path parameters:
+- `supervisorId`: guid, required
+- `pathId`: integer, required
+
+Success response: `SupervisorRequestDto`
+```json
+{
+  "supervisorId": "c3d4e5f6-a7b8-4c9d-0e1f-2a3b4c5d6e7f",
+  "supervisorName": "Dr. Johnson",
+  "pathId": 1,
+  "pathName": "ASP.NET Core Backend Development",
+  "status": "Rejected",
+  "rejectedAt": "2026-04-20T10:05:00Z"
+}
+```
+
+## Task Generation and Management APIs
+
+### Task Generation - Student Mode
 
 `POST /api/task-generation/generate`
 
-Use this when the frontend wants the backend to prepare the student-specific prompt and return one generated task as pure JSON.
+Use this when the frontend wants the backend to generate a task for the student.
+
+**Important**: If the student has an approved supervisor, this returns `202 Accepted` with a pending task generation request instead of generating immediately. The supervisor must then approve the task.
 
 Headers:
 ```http
@@ -63,7 +580,7 @@ Request DTO:
 - `studentId`: guid, required
 - `mainSkillId`: integer, required
 
-Success response: pure task JSON object returned directly from the model output
+**Case 1: No Supervisor (200 OK)** - Task is generated and persisted immediately
 ```json
 {
   "taskId": "f6f3b2a6-0df6-4b6b-8f4d-7d4a2b5f4c1a",
@@ -92,11 +609,6 @@ Success response: pure task JSON object returned directly from the model output
         "skill_id": 4,
         "criterion": "A custom middleware class is implemented and registered in the application pipeline.",
         "related_learning_objective": 48
-      },
-      {
-        "skill_id": 0,
-        "criterion": "A request with invalid quote quantity returns a 400 status code.",
-        "related_learning_objective": 0
       }
     ],
     "hints": [
@@ -107,20 +619,74 @@ Success response: pure task JSON object returned directly from the model output
 }
 ```
 
+**Case 2: With Supervisor (202 Accepted)** - Request is created for supervisor approval
+```json
+{
+  "mode": "supervisor_request",
+  "message": "Task generation request sent to supervisor for review.",
+  "request": {
+    "id": "a1b2c3d4-e5f6-4a5b-9c8d-1e2f3a4b5c6d",
+    "studentId": "d546ab00-024d-42b4-837c-9d42da4fa281",
+    "mainSkillId": 4,
+    "status": "Pending",
+    "createdAt": "2026-04-29T15:00:00Z"
+  }
+}
+```
+
 Important notes:
-- The response now includes a wrapper object with `taskId` and `taskData`.
-- `taskId` is the newly created task identifier.
-- `taskData` is the generated task JSON returned by the model.
-- The frontend can store the task id immediately and render `taskData` directly or transform it into the UI format it needs.
-- `validation_criteria` uses `skill_id: 0` and `related_learning_objective: 0` for business-logic checks that are not tied to a specific learning objective.
-- The model output may include objective IDs that do not belong to the current student unless the backend has already constrained them in the prompt; the backend is responsible for enforcing the allowed target and prerequisite lists.
-- If the frontend needs to regenerate a task, call the same endpoint again with the same `studentId` and `mainSkillId`.
+- When no supervisor: `taskId` is created and task is ready for the student.
+- When supervisor exists: a request is created with status "Pending"; student cannot start work until supervisor approves.
+- `validation_criteria` uses `related_learning_objective: 0` for business-logic checks not tied to a specific learning objective.
+- The model output may include objective IDs; backend enforces allowed target and prerequisite lists.
 
-## Task Submission Evaluation API
+### Mark Task As Passed
 
-This flow is protected and should be called after the student has generated and completed a task.
+`POST /api/studenttasks/{studentId}/{taskId}/mark-passed`
 
-### 8) Evaluate Task Submission
+Use this after the student completes a generated task and you want to mark it as passed.
+
+Headers:
+```http
+Authorization: Bearer <token>
+```
+
+Path parameters:
+- `studentId`: guid, required
+- `taskId`: guid, required
+
+Optional query parameter:
+- `score`: number from `0` to `100`
+
+Example request:
+```http
+POST /api/studenttasks/d546ab00-024d-42b4-837c-9d42da4fa281/f6f3b2a6-0df6-4b6b-8f4d-7d4a2b5f4c1a/mark-passed?score=85
+Authorization: Bearer <token>
+```
+
+Success response: `StudentTaskResponseDto`
+```json
+{
+  "studentId": "d546ab00-024d-42b4-837c-9d42da4fa281",
+  "taskId": "f6f3b2a6-0df6-4b6b-8f4d-7d4a2b5f4c1a",
+  "numberInMainSkill": 3,
+  "passed": true,
+  "startedAt": "2026-04-29T15:00:00Z",
+  "completedAt": "2026-04-29T15:10:00Z",
+  "score": 85
+}
+```
+
+Response fields:
+- `studentId`: guid
+- `taskId`: guid
+- `numberInMainSkill`: integer
+- `passed`: boolean
+- `startedAt`: datetime or null
+- `completedAt`: datetime or null
+- `score`: number or null
+
+### Evaluate Task Submission
 
 `POST /api/studenttasks/{studentId}/{taskId}/evaluate`
 
@@ -191,63 +757,11 @@ Response fields:
 - `studentWeaknesses`: list of strings
 - `topicsToRead`: list of strings
 
-Important notes:
-- `repositoryUrl` is required in the request body.
-- `ref` is optional and can be used to evaluate a branch, tag, or commit.
-- The backend flattens the repository code internally before sending it to the model.
-- The evaluation endpoint may also mark the related student task as passed when the validation pass ratio is high enough.
-
-### 9) Mark Task As Passed
-
-`POST /api/StudentTasks/{studentId}/{taskId}/mark-passed`
-
-Use this after the student completes a generated task and you want to mark it as passed.
-
-Headers:
-```http
-Authorization: Bearer <token>
-```
-
-Path parameters:
-- `studentId`: guid, required
-- `taskId`: guid, required
-
-Optional query parameter:
-- `score`: number from `0` to `100`
-
-Example request:
-```http
-POST /api/StudentTasks/d546ab00-024d-42b4-837c-9d42da4fa281/f6f3b2a6-0df6-4b6b-8f4d-7d4a2b5f4c1a/mark-passed?score=85
-Authorization: Bearer <token>
-```
-
-Success response: `StudentTaskResponseDto`
-```json
-{
-  "studentId": "d546ab00-024d-42b4-837c-9d42da4fa281",
-  "taskId": "f6f3b2a6-0df6-4b6b-8f4d-7d4a2b5f4c1a",
-  "numberInMainSkill": 3,
-  "passed": true,
-  "startedAt": "2026-04-29T15:00:00Z",
-  "completedAt": "2026-04-29T15:10:00Z",
-  "score": 85
-}
-```
-
-Response fields:
-- `studentId`: guid
-- `taskId`: guid
-- `numberInMainSkill`: integer
-- `passed`: boolean
-- `startedAt`: datetime or null
-- `completedAt`: datetime or null
-- `score`: number or null
-
-### 10) Get Task History by Skill
+### Get Task History by Skill
 
 `GET /api/studenttasks/by-student/{studentId}/skill/{skillId}`
 
-Use this to load the history of tasks completed for a specific skill. Useful for showing the student their progress within a skill.
+Use this to load the history of tasks completed for a specific skill.
 
 Headers:
 ```http
@@ -270,16 +784,6 @@ Success response: array of `TaskHistorySummaryDto`
     "score": 85,
     "passedValidations": 3,
     "totalValidations": 4
-  },
-  {
-    "taskId": "a1b2c3d4-e5f6-4a5b-9c8d-1e2f3a4b5c6d",
-    "taskName": "Dependency Injection in ASP.NET Core",
-    "numberInSkill": 2,
-    "passed": false,
-    "completedAt": null,
-    "score": null,
-    "passedValidations": 0,
-    "totalValidations": 0
   }
 ]
 ```
@@ -290,20 +794,15 @@ Response fields for each object:
 - `numberInSkill`: integer (which number task this is for the skill, 1-based)
 - `passed`: boolean
 - `completedAt`: datetime or null
-- `score`: number or null (calculated from validations: passed validations / total validations * 100)
+- `score`: number or null (percentage: passed validations / total validations * 100)
 - `passedValidations`: integer (number of validation criteria passed in the latest evaluation)
 - `totalValidations`: integer (total number of validation criteria for this task)
 
-Important notes:
-- Tasks are returned in reverse chronological order (most recent first).
-- If no evaluation exists for a task yet, `passedValidations` and `totalValidations` will be 0.
-- The `score` field represents the percentage of validation criteria passed (0-100).
-
-### 11) Get Task Details
+### Get Task Details
 
 `GET /api/studenttasks/{studentId}/{taskId}/details`
 
-Use this to view the full details of a specific task, including validation results and feedback. Useful for showing a student their task submission results.
+Use this to view the full details of a specific task, including validation results and feedback.
 
 Headers:
 ```http
@@ -336,29 +835,18 @@ Success response: `TaskDetailsResponseDto`
       "validationString": "A custom middleware class is implemented and registered in the application pipeline.",
       "isPass": false,
       "whyNotPass": "The middleware class exists, but it is never added to the request pipeline."
-    },
-    {
-      "validationId": 2,
-      "skillId": 4,
-      "objectiveId": 50,
-      "validationString": "The middleware correctly processes HTTP requests and responses.",
-      "isPass": true,
-      "whyNotPass": ""
     }
   ],
   "studentGoodPoints": [
     "The controller endpoint follows attribute routing.",
-    "The project structure is clean and easy to navigate.",
-    "Error handling is implemented in the middleware."
+    "The project structure is clean and easy to navigate."
   ],
   "studentWeaknesses": [
-    "Pipeline registration is missing for the middleware.",
-    "Some edge cases are not handled."
+    "Pipeline registration is missing for the middleware."
   ],
   "topicsToRead": [
     "ASP.NET Core middleware registration",
-    "Request pipeline ordering",
-    "Error handling in middleware"
+    "Request pipeline ordering"
   ]
 }
 ```
@@ -370,7 +858,7 @@ Response fields:
 - `passed`: boolean
 - `startedAt`: datetime or null
 - `completedAt`: datetime or null
-- `score`: number or null
+- `score`: number or null (percentage of validations passed)
 - `repositoryUrl`: string (the GitHub repository URL that was evaluated)
 - `repositoryRef`: string or null (the branch/tag/commit that was evaluated)
 - `evaluatedAt`: datetime or null (when the evaluation was performed)
@@ -386,411 +874,476 @@ Response fields:
 - `studentWeaknesses`: array of strings (areas for improvement)
 - `topicsToRead`: array of strings (recommended reading/learning topics)
 
-Important notes:
-- If no evaluation exists for this task yet, most fields will be empty/null and `validationResults` will be an empty array.
-- The `score` field is the percentage of validation criteria that passed.
-- `overallSummary` provides high-level feedback about the submission.
-- `validationResults` shows detailed information about each validation criterion and whether it passed.
-- Feedback fields (`studentGoodPoints`, `studentWeaknesses`, `topicsToRead`) are extracted from the latest evaluation and provide personalized feedback to the student.
+## Supervisor Management APIs
 
-## Auth APIs
+These endpoints are only available to users with the `Supervisor` role and require the `Authorization: Bearer <token>` header.
 
-### 1) Sign Up
+### Add Student to Supervision
 
-`POST /api/auth/signup`
+`POST /api/supervisor/add-student`
 
-Use this when a new student creates an account.
+Supervisor adds a student by email address. This creates a pending supervision request that the student must approve.
+
+Headers:
+```http
+Authorization: Bearer <token>
+Content-Type: application/json
+```
 
 Request body:
 ```json
 {
-  "fullName": "Sara Ali",
-  "email": "sara@example.com",
-  "password": "StrongPass123"
+  "studentEmail": "sara@example.com"
 }
 ```
 
 Request DTO:
-- `fullName`: string, required
-- `email`: string, required
-- `password`: string, required
+- `studentEmail`: string, required
 
-Success response: `StudentResponseDto`
+Success response: `SupervisorStudentResponseDto`
 ```json
 {
-  "id": "b8df4e5a-8e2d-4d2d-9f8c-1dc7b1e4f111",
-  "fullName": "Sara Ali",
-  "email": "sara@example.com",
-  "selectedPathId": null,
-  "requiresWelcomeAssessment": true,
-  "createdAt": "2026-04-18T10:20:30Z"
+  "supervisorId": "c3d4e5f6-a7b8-4c9d-0e1f-2a3b4c5d6e7f",
+  "studentId": "b8df4e5a-8e2d-4d2d-9f8c-1dc7b1e4f111",
+  "pathId": 1,
+  "status": "Pending",
+  "createdAt": "2026-04-20T10:00:00Z"
 }
 ```
 
 Response fields:
-- `id`: guid
-- `fullName`: string
-- `email`: string
-- `selectedPathId`: integer or null
-- `requiresWelcomeAssessment`: boolean
+- `supervisorId`: guid
+- `studentId`: guid
+- `pathId`: integer (path for which supervision applies)
+- `status`: string (Pending, Approved, or Rejected)
 - `createdAt`: datetime
 
-### 2) Sign In
+### Get My Students
 
-`POST /api/auth/signin`
+`GET /api/supervisor/my-students`
 
-Use this after the student logs in.
+Retrieve the list of students supervised by the current supervisor (approved students only).
 
-Request body:
-```json
-{
-  "email": "sara@example.com",
-  "password": "StrongPass123"
-}
+Headers:
+```http
+Authorization: Bearer <token>
 ```
 
-Request DTO:
-- `email`: string, required
-- `password`: string, required
-
-Success response: `AuthResponseDto`
+Success response: array of `StudentResponseDto`
 ```json
-{
-  "token": "eyJhbGciOiJIUzI1NiIs...",
-  "expiresAtUtc": "2026-04-18T12:20:30Z",
-  "student": {
+[
+  {
     "id": "b8df4e5a-8e2d-4d2d-9f8c-1dc7b1e4f111",
     "fullName": "Sara Ali",
     "email": "sara@example.com",
-    "selectedPathId": null,
-    "requiresWelcomeAssessment": true,
+    "selectedPathId": 1,
+    "requiresWelcomeAssessment": false,
     "createdAt": "2026-04-18T10:20:30Z"
   }
-}
+]
 ```
 
-Response fields:
-- `token`: JWT token for protected requests
-- `expiresAtUtc`: datetime
-- `student`: `StudentResponseDto`
+### Get Student's Skill History
 
-### 3) Current Student
+`GET /api/supervisor/students/{studentId}/skills/{skillId}/history`
 
-`GET /api/auth/me`
-
-Use this if the frontend wants to refresh the logged-in student state.
+Retrieve the task history for a specific student and skill. This allows supervisors to see all tasks completed by a student in a given skill, including scores and validation results.
 
 Headers:
 ```http
 Authorization: Bearer <token>
 ```
 
-Success response: `CurrentStudentDto`
+Path parameters:
+- `studentId`: guid, required
+- `skillId`: integer, required
+
+Success response: array of `TaskHistorySummaryDto`
 ```json
-{
-  "id": "b8df4e5a-8e2d-4d2d-9f8c-1dc7b1e4f111",
-  "fullName": "Sara Ali",
-  "email": "sara@example.com",
-  "requiresWelcomeAssessment": true
-}
+[
+  {
+    "taskId": "f6f3b2a6-0df6-4b6b-8f4d-7d4a2b5f4c1a",
+    "taskName": "Request Audit Middleware with Header Injection",
+    "numberInSkill": 1,
+    "passed": true,
+    "completedAt": "2026-04-29T15:10:00Z",
+    "score": 85,
+    "passedValidations": 3,
+    "totalValidations": 4
+  }
+]
 ```
 
-Response fields:
+Response fields for each object:
+- `taskId`: guid
+- `taskName`: string
+- `numberInSkill`: integer
+- `passed`: boolean
+- `completedAt`: datetime or null
+- `score`: number or null
+- `passedValidations`: integer
+- `totalValidations`: integer
+
+## Task Generation Request APIs (Supervisor Approval Flow)
+
+When a student with an approved supervisor requests task generation, a **task generation request** is created instead of immediately generating the task. The supervisor must then approve and persist the generated task.
+
+### Get Pending Task Generation Requests
+
+`GET /api/task-generation/requests`
+
+Retrieve all pending task generation requests for the current supervisor's students.
+
+Headers:
+```http
+Authorization: Bearer <token>
+```
+
+Success response: array of `TaskGenerationRequestDto`
+```json
+[
+  {
+    "id": "a1b2c3d4-e5f6-4a5b-9c8d-1e2f3a4b5c6d",
+    "studentId": "b8df4e5a-8e2d-4d2d-9f8c-1dc7b1e4f111",
+    "studentName": "Sara Ali",
+    "mainSkillId": 4,
+    "skillName": "ASP.NET Core Middleware",
+    "status": "Pending",
+    "createdAt": "2026-04-29T15:00:00Z"
+  }
+]
+```
+
+Response fields for each object:
 - `id`: guid
-- `fullName`: string
-- `email`: string
-- `requiresWelcomeAssessment`: boolean
+- `studentId`: guid
+- `studentName`: string
+- `mainSkillId`: integer
+- `skillName`: string
+- `status`: string (Pending, Approved, or Rejected)
+- `createdAt`: datetime
 
-## Path Browsing APIs
+### Generate and Preview Task
 
-### 4) Get All Paths
+`POST /api/task-generation/requests/{requestId}/approve-and-generate`
 
-`GET /api/paths`
-
-Use this to show the list of paths before the student chooses one.
-
-Success response: array of `PathItemResponseDto`
-```json
-[
-  {
-    "id": 1,
-    "name": "Backend Development",
-    "description": "Learn backend basics and advanced topics"
-  },
-  {
-    "id": 2,
-    "name": "Frontend Development",
-    "description": "Learn UI and client-side development"
-  }
-]
-```
-
-Each path object:
-- `id`: integer
-- `name`: string
-- `description`: string or null
-
-### 5) Get Skills by Path
-
-`GET /api/skills/by-path/{pathId}`
-
-Use this after the student selects a path, or before the welcome form if you want to show the path structure.
-
-Path parameter:
-- `pathId`: integer
-
-Success response: array of `SkillResponseDto`
-```json
-[
-  {
-    "id": 10,
-    "pathId": 1,
-    "name": "C# Basics",
-    "description": "Core language concepts"
-  },
-  {
-    "id": 11,
-    "pathId": 1,
-    "name": "ASP.NET Core",
-    "description": "Build web APIs and web apps"
-  }
-]
-```
-
-Each skill object:
-- `id`: integer
-- `pathId`: integer
-- `name`: string
-- `description`: string or null
-
-### 6) Get Learning Objectives by Skill
-
-`GET /api/learningobjectives/by-skill/{skillId}`
-
-Use this to build each welcome-form page for a skill.
-
-Path parameter:
-- `skillId`: integer
-
-Success response: array of `LearningObjectiveResponseDto`
-```json
-[
-  {
-    "id": 101,
-    "skillId": 10,
-    "description": "Understand variables and types"
-  },
-  {
-    "id": 102,
-    "skillId": 10,
-    "description": "Use loops and conditions"
-  }
-]
-```
-
-Each learning objective object:
-- `id`: integer
-- `skillId`: integer
-- `description`: string
-
-### 6.1) Get Path by Id
-
-`GET /api/paths/{id}`
-
-Use this when the dashboard opens a specific path details page.
-
-Path parameter:
-- `id`: integer
-
-Success response: `PathItemResponseDto`
-```json
-{
-  "id": 1,
-  "name": "Backend Development",
-  "description": "Learn backend basics and advanced topics"
-}
-```
-
-### 6.2) Get All Skills
-
-`GET /api/skills`
-
-Use this for admin/dashboard screens that show all skills across all paths.
-
-Success response: array of `SkillResponseDto`
-
-### 6.3) Get Skill by Id
-
-`GET /api/skills/{id}`
-
-Use this for skill details pages.
-
-Path parameter:
-- `id`: integer
-
-Success response: `SkillResponseDto`
-
-### 6.4) Get All Learning Objectives
-
-`GET /api/learningobjectives`
-
-Use this for admin/dashboard views that need a full catalog of objectives.
-
-Success response: array of `LearningObjectiveResponseDto`
-
-### 6.5) Get Learning Objective by Id
-
-`GET /api/learningobjectives/{id}`
-
-Use this for a single learning objective details screen.
-
-Path parameter:
-- `id`: integer
-
-Success response: `LearningObjectiveResponseDto`
-
-### 6.6) Dashboard Progress APIs (Student Learning Objectives)
-
-These endpoints are useful for student-progress widgets and analytics cards in the dashboard.
-All endpoints below require:
-```http
-Authorization: Bearer <token>
-```
-
-`GET /api/studentlearningobjectives`
-- Get all student-learning-objective records.
-
-`GET /api/studentlearningobjectives/{studentId}/{learningObjectiveId}`
-- Get one student-learning-objective record by composite key.
-
-`GET /api/studentlearningobjectives/by-student/{studentId}`
-- Get all learning-objective records for one student (very useful for progress dashboard).
-
-`GET /api/studentlearningobjectives/by-learning-objective/{learningObjectiveId}`
-- Get all students' records for one learning objective.
-
-### 6.7) Important Availability Note
-
-There is currently no direct endpoint:
-- `GET /api/learningobjectives/by-path/{pathId}`
-
-To load learning objectives for a path, use this sequence:
-1. `GET /api/skills/by-path/{pathId}`
-2. For each returned skill, call `GET /api/learningobjectives/by-skill/{skillId}`
-
-## Choose Path
-
-### 7) Select Path (Recommended)
-
-`PUT /api/auth/selected-path`
-
-Use this when the student chooses the path they want to learn.
+Generate a task for a pending request without persisting it yet. Allows supervisor to preview the generated content before committing.
 
 Headers:
 ```http
 Authorization: Bearer <token>
 ```
 
-Request body:
+Path parameters:
+- `requestId`: guid, required
+
+Success response: Generated task JSON object
 ```json
 {
-  "selectedPathId": 1
+  "taskId": "temp-preview-id",
+  "taskData": {
+    "task_name": "Request Audit Middleware with Header Injection and Attribute Routing",
+    "skill_category": "ASP.NET Core Logics",
+    "scenario": {
+      "story": "A fintech startup requires an internal auditing mechanism...",
+      "requirement": "Implement a single feature with middleware..."
+    },
+    "targeted_objectives": [48, 50, 51],
+    "additional_skills_required": [],
+    "instructions": ["Start by defining the data model..."],
+    "validation_criteria": [
+      {
+        "skill_id": 4,
+        "criterion": "A custom middleware class is implemented...",
+        "related_learning_objective": 48
+      }
+    ],
+    "hints": [...]
+  }
 }
 ```
 
-Request DTO: `SelectPathDto`
-- `selectedPathId`: integer, required
+Important notes:
+- The `taskId` in the preview is temporary and not persisted.
+- Supervisors can edit the task data before approving and persisting.
+- If satisfied, call `/approve-and-persist` with the generated content.
 
-Success response: `StudentResponseDto`
-```json
-{
-  "id": "b8df4e5a-8e2d-4d2d-9f8c-1dc7b1e4f111",
-  "fullName": "Sara Ali",
-  "email": "sara@example.com",
-  "selectedPathId": 1,
-  "requiresWelcomeAssessment": true,
-  "createdAt": "2026-04-18T10:20:30Z"
-}
-```
+### Approve and Persist Generated Task
 
-## Welcome Assessment
+`POST /api/task-generation/requests/{requestId}/approve-and-persist`
 
-### 8) Submit Welcome Assessment
-
-`POST /api/auth/welcome-assessment`
-
-Use this once after the student finishes all welcome pages.
+Approve a task generation request by providing the reviewed/edited task content. This persists the task in the database for the student and marks the request as approved.
 
 Headers:
 ```http
 Authorization: Bearer <token>
+Content-Type: application/json
 ```
+
+Path parameters:
+- `requestId`: guid, required
 
 Request body:
 ```json
 {
-  "objectives": [
-    { "learningObjectiveId": 101, "score": 0 },
-    { "learningObjectiveId": 102, "score": 3 },
-    { "learningObjectiveId": 201, "score": 4 }
+  "generatedContent": {
+    "task_name": "Request Audit Middleware...",
+    "skill_category": "ASP.NET Core Logics",
+    "scenario": {
+      "story": "A fintech startup requires...",
+      "requirement": "Implement a single feature..."
+    },
+    "targeted_objectives": [48, 50, 51],
+    "additional_skills_required": [],
+    "instructions": ["Start by..."],
+    "validation_criteria": [
+      {
+        "skill_id": 4,
+        "criterion": "A custom middleware class is implemented...",
+        "related_learning_objective": 48
+      }
+    ],
+    "hints": []
+  }
+}
+```
+
+Success response: `TaskResponseDto`
+```json
+{
+  "taskId": "f6f3b2a6-0df6-4b6b-8f4d-7d4a2b5f4c1a",
+  "studentId": "b8df4e5a-8e2d-4d2d-9f8c-1dc7b1e4f111",
+  "mainSkillId": 4,
+  "status": "Approved",
+  "createdAt": "2026-04-29T15:05:00Z"
+}
+```
+
+## Task Editing APIs (Supervisor Only)
+
+Supervisors can edit tasks they have generated for their students. Any task edited by a supervisor is marked with a flag (`supervisorEdited = true`) and excluded from AI generation example pools.
+
+### Edit Task Objectives
+
+`PUT /api/tasks/{taskId}/objectives`
+
+Add or remove learning objectives (targets) from a task.
+
+Headers:
+```http
+Authorization: Bearer <token>
+Content-Type: application/json
+```
+
+Path parameters:
+- `taskId`: guid, required
+
+Request body:
+```json
+{
+  "targetObjectiveIds": [48, 50, 51]
+}
+```
+
+Request DTO:
+- `targetObjectiveIds`: array of integers (learning objective IDs to set as targets)
+
+Success response: `TaskResponseDto`
+```json
+{
+  "taskId": "f6f3b2a6-0df6-4b6b-8f4d-7d4a2b5f4c1a",
+  "mainSkillId": 4,
+  "targetObjectiveIds": [48, 50, 51],
+  "supervisorEdited": true,
+  "editedAt": "2026-04-30T10:00:00Z"
+}
+```
+
+### Edit Task Prerequisites
+
+`PUT /api/tasks/{taskId}/prerequisites`
+
+Add or remove prerequisite learning objectives from other skills in the same path.
+
+Headers:
+```http
+Authorization: Bearer <token>
+Content-Type: application/json
+```
+
+Path parameters:
+- `taskId`: guid, required
+
+Request body:
+```json
+{
+  "prerequisiteObjectiveIds": [1, 2, 5]
+}
+```
+
+Request DTO:
+- `prerequisiteObjectiveIds`: array of integers (learning objective IDs from other skills to set as prerequisites)
+
+Success response: `TaskResponseDto`
+```json
+{
+  "taskId": "f6f3b2a6-0df6-4b6b-8f4d-7d4a2b5f4c1a",
+  "mainSkillId": 4,
+  "prerequisiteObjectiveIds": [1, 2, 5],
+  "supervisorEdited": true,
+  "editedAt": "2026-04-30T10:00:00Z"
+}
+```
+
+### Edit Task Validation Criteria
+
+`PUT /api/tasks/{taskId}/validations`
+
+Update the validation criteria (rubric) for a task. Each criterion checks whether the student met a specific learning objective.
+
+Headers:
+```http
+Authorization: Bearer <token>
+Content-Type: application/json
+```
+
+Path parameters:
+- `taskId`: guid, required
+
+Request body:
+```json
+{
+  "validations": [
+    {
+      "skillId": 4,
+      "objectiveId": 48,
+      "criterion": "A custom middleware class is implemented and registered in the application pipeline."
+    },
+    {
+      "skillId": 4,
+      "objectiveId": 50,
+      "criterion": "The middleware correctly processes HTTP requests and responses."
+    }
   ]
 }
 ```
 
-Request DTO: `SubmitWelcomeAssessmentDto`
-- `objectives`: array of `WelcomeAssessmentItemDto`
+Request DTO:
+- `validations`: array of validation objects
+  - `skillId`: integer (skill ID for this criterion)
+  - `objectiveId`: integer (learning objective ID this criterion targets)
+  - `criterion`: string (the validation criterion text)
 
-Each object in `objectives`:
-- `learningObjectiveId`: integer, required
-- `score`: integer, required, must be one of `0`, `1`, `2`, `3`, `4`
-
-Frontend input meaning:
-- `0` = knows nothing
-- `1` = low knowledge
-- `2` = medium-low knowledge
-- `3` = good knowledge
-- `4` = very strong knowledge
-
-Backend stored score mapping:
-- `0 -> 0.0`
-- `1 -> 0.2`
-- `2 -> 0.4`
-- `3 -> 0.6`
-- `4 -> 0.65`
-
-Success response:
+Success response: `TaskResponseDto`
 ```json
 {
-  "success": true
+  "taskId": "f6f3b2a6-0df6-4b6b-8f4d-7d4a2b5f4c1a",
+  "mainSkillId": 4,
+  "validationCount": 2,
+  "supervisorEdited": true,
+  "editedAt": "2026-04-30T10:00:00Z"
 }
 ```
 
-Important behavior:
-- If the student already completed the welcome assessment, backend returns an error and does not allow resubmission.
-- After a successful submit, `requiresWelcomeAssessment` becomes `false`.
+## Utility Endpoints
 
-## Data You Should Keep in Frontend State
+### Flatten GitHub Repository
 
-After sign in, keep these values:
-- `token`
-- `student.id`
-- `student.selectedPathId`
-- `student.requiresWelcomeAssessment`
+`POST /api/github-repositories/flatten`
 
-Recommended flow:
-1. Sign in.
-2. If `requiresWelcomeAssessment` is `true`, send the student to the path selection + welcome assessment flow.
-3. Load `GET /api/paths`.
-4. After choosing a path, call `PUT /api/auth/selected-path`.
-5. Load `GET /api/skills/by-path/{pathId}`.
-6. For each skill, load `GET /api/learningobjectives/by-skill/{skillId}`.
-7. Render one page per skill.
-8. Submit all ratings once with `POST /api/auth/welcome-assessment`.
-9. Use `GET /api/auth/me` or the sign-in response to confirm `requiresWelcomeAssessment` is now `false`.
+Use this to inspect a GitHub repository and get its flattened source code. Useful for analyzing student submissions or debugging.
 
-## Notes For Frontend
+Headers:
+```http
+Authorization: Bearer <token>
+Content-Type: application/json
+```
 
-- The welcome form is one-time only per student.
-- The backend decides if the form should still appear using the `requiresWelcomeAssessment` flag.
-- The frontend should not try to calculate or store the backend score values directly. It should send only the `0..4` rating.
-- `skills` and `learning objectives` are separate API calls, so build the welcome pages dynamically from them.
+Request body:
+```json
+{
+  "repositoryUrl": "https://github.com/example/student-submission",
+  "ref": "main"
+}
+```
+
+Request DTO:
+- `repositoryUrl`: string, required
+- `ref`: string, optional (branch, tag, or commit SHA)
+
+Success response: `FlattenedRepositoryResponseDto`
+```json
+{
+  "flattened_source_code": "// Combined source from all files...",
+  "files": [
+    {
+      "path": "src/Middleware.cs",
+      "language": "csharp"
+    }
+  ]
+}
+```
+
+Response fields:
+- `flattened_source_code`: string (all source files combined into one)
+- `files`: array of file objects
+  - `path`: string (file path in repository)
+  - `language`: string (detected language)
+
+## Important Frontend Flows
+
+### Student Frontend Flow
+
+1. Student signs up via `POST /api/auth/signup`.
+2. Student signs in via `POST /api/auth/signin` and receives JWT token.
+3. Frontend checks `requiresWelcomeAssessment` from sign-in response.
+4. Student chooses a path via `PUT /api/students/{id}`.
+5. Frontend loads skills via `GET /api/skills/by-path/{pathId}`.
+6. Frontend loads learning objectives via `GET /api/learningobjectives/by-skill/{skillId}`.
+7. Frontend shows welcome form, split into pages by skill.
+8. Student rates each objective (0-4) and submits via `POST /api/auth/welcome-assessment`.
+9. Frontend checks for supervisor requests via `GET /api/auth/supervisor-requests`.
+10. If supervisor request exists, student can approve/reject.
+11. To generate a task, call `POST /api/task-generation/generate`.
+    - If no supervisor: task is generated immediately (200 OK).
+    - If supervisor exists: request is created (202 Accepted); student waits for supervisor approval.
+12. Once task is available, student completes it and submits via `POST /api/studenttasks/{studentId}/{taskId}/evaluate` with GitHub URL.
+13. Student can view history via `GET /api/studenttasks/by-student/{studentId}/skill/{skillId}`.
+14. Student can view detailed feedback via `GET /api/studenttasks/{studentId}/{taskId}/details`.
+
+### Supervisor Frontend Flow
+
+1. Supervisor signs up via `POST /api/auth/supervisor-signup` and selects a path.
+2. Supervisor signs in via `POST /api/auth/supervisor-signin` and receives JWT token.
+3. Supervisor can add students via `POST /api/supervisor/add-student` (by email).
+4. Supervisor retrieves approved students via `GET /api/supervisor/my-students`.
+5. Supervisor checks for pending task generation requests via `GET /api/task-generation/requests`.
+6. For each request, supervisor can:
+   - Preview the generated task via `POST /api/task-generation/requests/{requestId}/approve-and-generate`.
+   - Edit the task content if needed.
+   - Persist the task via `POST /api/task-generation/requests/{requestId}/approve-and-persist`.
+7. Supervisor can view student history via `GET /api/supervisor/students/{studentId}/skills/{skillId}/history`.
+8. Supervisor can edit tasks via `PUT /api/tasks/{taskId}/objectives`, `/prerequisites`, or `/validations`.
+9. Supervisor can view detailed submission feedback via `GET /api/studenttasks/{studentId}/{taskId}/details`.
+
+## Error Handling
+
+All endpoints follow these error patterns:
+
+- **400 Bad Request**: Validation error or invalid input. Response includes a plain text error message.
+- **404 Not Found**: Resource not found. Response includes a plain text message indicating which resource is missing.
+- **401 Unauthorized**: Missing or invalid authentication token.
+- **403 Forbidden**: Authenticated but not authorized for this resource (e.g., wrong role).
+- **202 Accepted**: Async operation initiated (e.g., task generation request created; student must wait for supervisor).
+
+## Rate Limiting & Performance Notes
+
+- No explicit rate limiting is currently implemented.
+- Task generation can take 10-30 seconds depending on model load.
+- GitHub repository flattening can take 5-10 seconds for large repositories.
+- Frontend should show loading indicators during these operations.
+
+## Version History
+
+- **v1.0** (2026-04-18): Initial API guide for student flows.
+- **v2.0** (2026-04-30): Added comprehensive supervisor APIs, task editing, and request management flows.

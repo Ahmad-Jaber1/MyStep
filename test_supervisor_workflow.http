@@ -17,8 +17,8 @@
 ###############################################################################
 
 # Variables for Student
-@studentFullName = Ahmad Jaber
-@studentEmail = Ahmad.Jaber@example.com
+@studentFullName = Alice Johnson
+@studentEmail = alice.johnson@example.com
 @studentPassword = StudentPass123!
 
 ###
@@ -130,7 +130,7 @@ Content-Type: application/json
 
 ###
 # Capture supervisor ID from signup
-@supervisorId = {{supervisor_signup.response.body.$.supervisor.id}}
+@supervisorId = {{supervisor_signup.response.body.$.id}}
 
 ###
 # 2.2) SUPERVISOR SIGNIN - Authenticate supervisor
@@ -146,10 +146,6 @@ Content-Type: application/json
 ###
 # Capture supervisor token
 @supervisorToken = {{supervisor_signin.response.body.$.token}}
-
-###
-# Capture supervisor ID from signin response (reliable on reruns when signup may fail)
-@supervisorId = {{supervisor_signin.response.body.$.supervisor.id}}
 
 ###
 # 2.3) VERIFY CURRENT SUPERVISOR - Check logged-in supervisor info
@@ -179,6 +175,7 @@ Content-Type: application/json
 ###
 GET {{baseUrl}}/auth/supervisor-requests
 Authorization: Bearer {{studentToken}}
+
 
 ###
 # 3.2) STUDENT APPROVES SUPERVISOR - Student approves the supervisor invitation
@@ -214,7 +211,7 @@ Content-Type: application/json
 
 {
   "studentId": "{{studentId}}",
-  "mainSkillId": 1
+  "mainSkillId": 4
 }
 
 ###
@@ -240,14 +237,35 @@ Content-Type: application/json
 # Capture task ID
 @taskId = {{approve_generate_task.response.body.$.taskId}}
 
+###############################################################################
+# ======== PHASE 5: STUDENT COMPLETES TASK ========
+###############################################################################
+
 ###
-# 4.4) GET FULL TASK PAYLOAD - This is the raw task JSON the student will use to solve the task
-# @name get_full_task_payload
-GET {{baseUrl}}/taskitems/{{taskId}}
+# 5.1) GET STUDENT TASKS - View assigned tasks
+GET {{baseUrl}}/studenttasks/by-student/{{studentId}}
 Authorization: Bearer {{studentToken}}
 
+###
+# 5.2) GET TASK DETAILS - View full task with validation criteria
+GET {{baseUrl}}/studenttasks/by-student/{{studentId}}/task/{{taskId}}
+Authorization: Bearer {{studentToken}}
+
+###
+# 5.3) SUBMIT TASK SOLUTION - Student submits code and repository
+# This endpoint submits the task completion with validation results
+# @name submit_task
+POST {{baseUrl}}/StudentTasks/{{studentId}}/{{taskId}}/submit
+Authorization: Bearer {{studentToken}}
+Content-Type: application/json
+
+{
+  "repositoryUrl": "https://github.com/alice/middleware-task",
+  "repositoryRef": "main"
+}
+
 ###############################################################################
-# ======== PHASE 6: SUPERVISOR EDITS TASK (do edits before student sees it) ========
+# ======== PHASE 6: SUPERVISOR EDITS TASK ========
 ###############################################################################
 
 ###
@@ -258,7 +276,7 @@ Authorization: Bearer {{supervisorToken}}
 Content-Type: application/json
 
 {
-  "objectiveIds": [1, 2, 5]
+  "objectiveIds": [48, 49, 50]
 }
 
 ###
@@ -282,19 +300,19 @@ Content-Type: application/json
 {
   "validations": [
     {
-      "skillId": 1,
+      "skillId": 4,
       "criterion": "Middleware is properly implemented and registered.",
-      "relatedLearningObjective": 1
+      "relatedLearningObjective": 48
     },
     {
-      "skillId": 1,
+      "skillId": 4,
       "criterion": "Error handling returns appropriate HTTP status codes.",
-      "relatedLearningObjective": 2
+      "relatedLearningObjective": 49
     },
     {
-      "skillId": 1,
+      "skillId": 4,
       "criterion": "Logging captures all required metadata.",
-      "relatedLearningObjective": 5
+      "relatedLearningObjective": 50
     },
     {
       "skillId": 0,
@@ -305,55 +323,18 @@ Content-Type: application/json
 }
 
 ###############################################################################
-# After supervisor edits, student can now view and work on the task
-###############################################################################
-
-###
-# 6.4) GET FULL TASK PAYLOAD - This is the final raw task JSON the student will use to solve the task
-# @name get_full_task_payload
-GET {{baseUrl}}/taskitems/{{taskId}}
-Authorization: Bearer {{studentToken}}
-
-###############################################################################
-# ======== PHASE 5: STUDENT COMPLETES TASK ========
-###############################################################################
-
-###
-# 5.1) GET STUDENT TASKS -View assigned tasks 
-GET {{baseUrl}}/studenttasks/by-student/{{studentId}}
-Authorization: Bearer {{studentToken}}
-
-###
-# 5.2) GET TASK DETAILS - View full task with validation criteria
-GET {{baseUrl}}/studenttasks/{{studentId}}/{{taskId}}/details
-Authorization: Bearer {{studentToken}}
-
-###
-# 5.3) SUBMIT TASK SOLUTION - Student submits code and repository
-# This endpoint submits the task completion for evaluation
-# @name submit_task
-POST {{baseUrl}}/StudentTasks/{{studentId}}/{{taskId}}/evaluate
-Authorization: Bearer {{studentToken}}
-Content-Type: application/json
-
-{
-  "repositoryUrl": "https://github.com/Ahmad-Jaber1/testRepo",
-  "ref": "main"
-}
-
-###############################################################################
 # ======== PHASE 7: SUPERVISOR VIEWS STUDENT PROGRESS ========
 ###############################################################################
 
 ###
 # 7.1) SUPERVISOR VIEWS STUDENT TASK HISTORY - Get all tasks in a skill
 # @name student_history
-GET {{baseUrl}}/supervisor/students/{{studentId}}/skills/1/history
+GET {{baseUrl}}/supervisor/students/{{studentId}}/skills/4/history
 Authorization: Bearer {{supervisorToken}}
 
 ###
 # 7.2) GET FULL TASK DETAILS - Supervisor views complete task evaluation
-GET {{baseUrl}}/studenttasks/{{studentId}}/{{taskId}}/details
+GET {{baseUrl}}/studenttasks/by-student/{{studentId}}/task/{{taskId}}
 Authorization: Bearer {{supervisorToken}}
 
 ###############################################################################

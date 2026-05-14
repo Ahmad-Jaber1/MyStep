@@ -28,7 +28,12 @@ namespace Models
         // }
 
         public Vector SearchVector { get; set; } = null!;
-        
+
+        public bool SupervisorEdited { get; set; } = false;
+
+        public Guid? EditedBySupervisorId { get; set; }
+
+        public DateTime? EditedAt { get; set; }
 
         // Navigation
         public PathItem Path { get; set; } = null!;

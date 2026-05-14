@@ -85,6 +85,7 @@ public class StudentTaskService : IStudentTaskService
                 Passed = task.Passed,
                 CompletedAt = task.CompletedAt,
                 Score = task.Score,
+                RepositoryUrl = task.LastSubmittedRepositoryUrl ?? evaluation?.RepositoryUrl,
                 PassedValidations = evaluation?.PassedValidationCount ?? 0,
                 TotalValidations = evaluation?.ValidationCount ?? 0
             };
@@ -133,7 +134,7 @@ public class StudentTaskService : IStudentTaskService
             StartedAt = studentTask.StartedAt,
             CompletedAt = studentTask.CompletedAt,
             Score = studentTask.Score,
-            RepositoryUrl = evaluation?.RepositoryUrl ?? string.Empty,
+            RepositoryUrl = studentTask.LastSubmittedRepositoryUrl ?? evaluation?.RepositoryUrl ?? string.Empty,
             RepositoryRef = evaluation?.Reference,
             EvaluatedAt = evaluation?.CreatedAt,
             OverallSummary = evaluation?.OverallSummary ?? string.Empty

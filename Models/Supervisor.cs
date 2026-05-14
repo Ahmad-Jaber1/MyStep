@@ -1,9 +1,9 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 
 namespace Models
 {
-    public class Student
+    public class Supervisor
     {
         public Guid Id { get; set; }
 
@@ -13,18 +13,11 @@ namespace Models
 
         public string PasswordHash { get; set; } = null!;
 
-        public int? SelectedPathId { get; set; }
-
-        public bool HasCompletedWelcomeAssessment { get; set; } = false;
+        public int PathId { get; set; }
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
-        public PathItem? SelectedPath { get; set; }
-
-        public ICollection<StudentLearningObjective> StudentLearningObjectives { get; set; }
-            = new List<StudentLearningObjective>();
-
-        public ICollection<StudentTask> StudentTasks { get; set; } = new List<StudentTask>();
+        public PathItem? Path { get; set; }
 
         public ICollection<SupervisorStudent> SupervisorStudents { get; set; } 
             = new List<SupervisorStudent>();
