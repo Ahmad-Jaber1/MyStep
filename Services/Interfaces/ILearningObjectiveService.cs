@@ -8,6 +8,7 @@ public interface ILearningObjectiveService
     Task<Result<List<LearningObjectiveResponseDto>>> GetAllAsync();
     Task<Result<LearningObjectiveResponseDto>> GetByIdAsync(int id);
     Task<Result<List<LearningObjectiveResponseDto>>> GetBySkillIdAsync(int skillId);
+    Task<Result<List<LearningObjectiveResponseDto>>> GetPrerequisitesAvailableAsync(int mainSkillId, int pathId, Guid studentId, double threshold = 0.7);
     Task<Result<LearningObjectiveResponseDto>> CreateAsync(CreateLearningObjectiveDto dto);
     Task<Result<LearningObjectiveResponseDto>> UpdateAsync(int id, UpdateLearningObjectiveDto dto);
     Task<Result<bool>> DeleteAsync(int id);

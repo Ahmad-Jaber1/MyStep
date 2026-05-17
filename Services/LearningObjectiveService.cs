@@ -10,11 +10,13 @@ public class LearningObjectiveService : ILearningObjectiveService
 {
     private readonly ILearningObjectiveRepo _learningObjectiveRepo;
     private readonly ISkillRepo _skillRepo;
+    private readonly IStudentLearningObjectiveRepo _studentLearningObjectiveRepo;
 
-    public LearningObjectiveService(ILearningObjectiveRepo learningObjectiveRepo, ISkillRepo skillRepo)
+    public LearningObjectiveService(ILearningObjectiveRepo learningObjectiveRepo, ISkillRepo skillRepo, IStudentLearningObjectiveRepo studentLearningObjectiveRepo)
     {
         _learningObjectiveRepo = learningObjectiveRepo;
         _skillRepo = skillRepo;
+        _studentLearningObjectiveRepo = studentLearningObjectiveRepo;
     }
 
     public async Task<Result<List<LearningObjectiveResponseDto>>> GetAllAsync()
@@ -54,6 +56,58 @@ public class LearningObjectiveService : ILearningObjectiveService
 
         var objectives = await _learningObjectiveRepo.GetBySkillIdAsync(skillId);
         return Result<List<LearningObjectiveResponseDto>>.Success(objectives.Select(MapToResponse).ToList());
+    }
+
+    public async Task<Result<List<LearningObjectiveResponseDto>>> GetPrerequisitesAvailableAsync(int mainSkillId, int pathId, Guid studentId, double threshold = 0.7)
+    {
+        if (mainSkillId <= 0)
+        {
+            return Result<List<LearningObjectiveResponseDto>>.Failure("Main skill id must be greater than zero.");
+        }
+
+        if (pathId <= 0)
+        {
+            return Result<List<LearningObjectiveResponseDto>>.Failure("Path id must be greater than zero.");
+        }
+
+        if (studentId == Guid.Empty)
+        {
+            return Result<List<LearningObjectiveResponseDto>>.Failure("Student id is required.");
+        }
+
+        var mainSkill = await _skillRepo.GetByIdAsync(mainSkillId);
+        if (mainSkill is null)
+        {
+            return Result<List<LearningObjectiveResponseDto>>.Failure($"Skill with id {mainSkillId} was not found.");
+        }
+
+        if (mainSkill.PathId != pathId)
+        {
+            return Result<List<LearningObjectiveResponseDto>>.Failure("Main skill does not belong to the provided path.");
+        }
+
+        var allPathSkills = await _skillRepo.GetByPathIdAsync(pathId);
+        var otherSkills = allPathSkills.Where(s => s.Id != mainSkillId).ToList();
+
+        var studentObjectives = await _studentLearningObjectiveRepo.GetByStudentIdAsync(studentId);
+        var studentMap = studentObjectives.ToDictionary(x => x.LearningObjectiveId, x => x.Score);
+
+        var resultList = new List<LearningObjectiveResponseDto>();
+
+        foreach (var skill in otherSkills)
+        {
+            var objectives = await _learningObjectiveRepo.GetBySkillIdAsync(skill.Id);
+            foreach (var obj in objectives)
+            {
+                studentMap.TryGetValue(obj.Id, out var score);
+                if (score >= threshold)
+                {
+                    resultList.Add(MapToResponse(obj));
+                }
+            }
+        }
+
+        return Result<List<LearningObjectiveResponseDto>>.Success(resultList);
     }
 
     public async Task<Result<LearningObjectiveResponseDto>> CreateAsync(CreateLearningObjectiveDto dto)

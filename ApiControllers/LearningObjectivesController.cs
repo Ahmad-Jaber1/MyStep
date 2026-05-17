@@ -37,6 +37,13 @@ public class LearningObjectivesController : ControllerBase
         return ToActionResult(result);
     }
 
+    [HttpGet("prerequisites-available/{mainSkillId}/{pathId}/{studentId}")]
+    public async Task<IActionResult> GetPrerequisitesAvailable(int mainSkillId, int pathId, Guid studentId, [FromQuery] double threshold = 0.7)
+    {
+        var result = await _learningObjectiveService.GetPrerequisitesAvailableAsync(mainSkillId, pathId, studentId, threshold);
+        return ToActionResult(result);
+    }
+
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateLearningObjectiveDto dto)
     {

@@ -386,6 +386,36 @@ Response fields for each object:
 - `name`: string
 - `description`: string
 
+### Get Available Prerequisite Objectives
+
+`GET /api/learningobjectives/prerequisites-available/{mainSkillId}/{pathId}/{studentId}?threshold=0.7`
+
+Retrieve learning objectives from other skills in the same path where the student's score for the objective is greater than or equal to the threshold (default `0.7`). Useful when choosing prerequisites to attach to a new task.
+
+Path parameters:
+- `mainSkillId`: integer, required
+- `pathId`: integer, required
+- `studentId`: guid, required
+
+Query parameters:
+- `threshold`: number (0.0-1.0), optional (default 0.7)
+
+Success response: array of `LearningObjectiveResponseDto`
+```json
+[
+  {
+    "id": 12,
+    "skillId": 2,
+    "description": "Understand routing attributes"
+  }
+]
+```
+
+Response fields for each object:
+- `id`: integer
+- `skillId`: integer
+- `description`: string
+
 ## Student-Specific APIs
 
 ### Choose Path

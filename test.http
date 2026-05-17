@@ -18,7 +18,7 @@
 
 # Variables for Student
 @studentFullName = Ahmad Jaber
-@studentEmail = Ahmad.Jaber@example.com
+@studentEmail = Ahmad.Jaber1@example.com
 @studentPassword = StudentPass123!
 
 ###
@@ -407,3 +407,12 @@ Content-Type: application/json
 # - Supervisor tries to view another supervisor's student (403)
 # - Invalid objective IDs in edit endpoints (400)
 # - Prerequisite objectives from same skill as main skill (400)
+
+###
+GET {{baseUrl}}/studenttasks/by-student/{{studentId}}/skill/1
+Authorization: Bearer {{studentToken}}
+Content-Type: application/json
+###
+GET {{baseUrl}}/studenttasks/{{studentId}}/{{taskId}}/details
+Authorization: Bearer {{studentToken}}
+Content-Type: application/json
